@@ -110,6 +110,4 @@ lxc:
       - id: mp0
         source: "/mnt/pve/Photos"  # CIFS from truenas.lan/Photos
         target: "/mnt/Photos"
-        uid: 999
-        gid: 991
-    notes: "Installed via community-scripts; mp0 parse warning is cosmetic"
+    notes: "Installed via community-scripts; privileged container (GPU passthrough)"
