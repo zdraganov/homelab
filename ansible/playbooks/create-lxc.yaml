@@ -6,13 +6,12 @@
     hostname: ""
     memory: 2048
     cores: 2
-    disk: "8"
+    disk: 8
     ostemplate: "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
     storage: "local-lvm"
-    net: "name=eth0,bridge=vmbr0,ip=dhcp,type=veth"
-    onboot: true
     nesting: true
-    unprivileged: true
+    onboot: true
+    start_after: true
   tasks:
     - name: Validate input
       assert:
@@ -22,29 +21,19 @@
         fail_msg: "Usage: -e id=<vmid> -e hostname=<name> [-e memory=2048] [-e cores=2] [-e disk=8]"
 
     - name: Create LXC
-      community.general.proxmox:
-        api_host: "{{ ansible_host }}"
-        api_user: root@pam
-        api_password: "{{ lookup('env', 'PVE_PASSWORD') }}"
-        node: pve
-        vmid: "{{ id }}"
-        hostname: "{{ hostname }}"
-        ostemplate: "{{ ostemplate }}"
-        storage: "{{ storage }}"
-        memory: "{{ memory }}"
-        cores: "{{ cores }}"
-        disk: "{{ disk }}"
-        netif: '{"net0":"{{ net }}"}'
-        onboot: "{{ onboot }}"
-        unprivileged: "{{ unprivileged }}"
-        features:
-          - nesting={{ nesting | ternary(1, 0) }}
-        state: present
+      command: >
+        pct create {{ id }} {{ ostemplate }}
+        --hostname {{ hostname }}
+        --memory {{ memory }}
+        --cores {{ cores }}
+        --rootfs {{ storage }}:{{ disk }}
+        --net0 name=eth0,bridge=vmbr0,ip=dhcp,type=veth
+        --features nesting={{ nesting | ternary('1','0') }}
+        --onboot {{ onboot | ternary('1','0') }}
+        --unprivileged 1
+        --start {{ start_after | ternary('1','0') }}
+      register: result
 
-    - name: Start LXC
-      community.general.proxmox:
-        api_host: "{{ ansible_host }}"
-        api_user: root@pam
-        api_password: "{{ lookup('env', 'PVE_PASSWORD') }}"
-        vmid: "{{ id }}"
-        state: started
+    - name: Show result
+      debug:
+        msg: "LXC {{ id }} ({{ hostname }}) created successfully"
