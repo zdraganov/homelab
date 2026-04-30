@@ -85,6 +85,7 @@ sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
 	else \
 		for dir in stacks/*/; do \
 			stack=$$(basename $$dir); \
+			[ "$$stack" = "dockge" ] && continue; \
 			$(SSH) "pct exec $(DOCKGE_LXC) -- mkdir -p /opt/stacks/$$stack"; \
 			cat $$dir/compose.yaml | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$$stack/compose.yaml"; \
 		done; \
