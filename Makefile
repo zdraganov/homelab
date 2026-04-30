@@ -108,7 +108,45 @@ deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
 	@echo "✓ $(STACK) deployed"
 
-# --- Infrastructure ---
+# --- Infrastructure (Ansible) ---
+ANSIBLE     := cd ansible && ansible-playbook
+
+.PHONY: status
+status: ## Show live status of all VMs and LXCs
+	@$(ANSIBLE) playbooks/status.yaml
+
+.PHONY: start
+start: ## Start a VM or LXC (usage: make start ID=101)
+	@test -n "$(ID)" || (echo "Usage: make start ID=<vmid>" && exit 1)
+	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=start
+
+.PHONY: stop
+stop: ## Stop a VM or LXC (usage: make stop ID=101)
+	@test -n "$(ID)" || (echo "Usage: make stop ID=<vmid>" && exit 1)
+	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=stop
+
+.PHONY: restart
+restart: ## Restart a VM or LXC (usage: make restart ID=101)
+	@test -n "$(ID)" || (echo "Usage: make restart ID=<vmid>" && exit 1)
+	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=reboot
+
+.PHONY: create-lxc
+create-lxc: ## Create a new LXC (usage: make create-lxc ID=107 HOSTNAME=myapp)
+	@test -n "$(ID)" || (echo "Usage: make create-lxc ID=<vmid> HOSTNAME=<name>" && exit 1)
+	@test -n "$(HOSTNAME)" || (echo "Usage: make create-lxc ID=<vmid> HOSTNAME=<name>" && exit 1)
+	@$(ANSIBLE) playbooks/create-lxc.yaml -e id=$(ID) -e hostname=$(HOSTNAME)
+
+.PHONY: shell
+shell: ## Open shell into a LXC (usage: make shell ID=104)
+	@test -n "$(ID)" || (echo "Usage: make shell ID=<lxc-id>" && exit 1)
+	@$(SSH) -t "pct enter $(ID)"
+
+.PHONY: exec
+exec: ## Run a command in a LXC (usage: make exec ID=104 CMD="docker ps")
+	@test -n "$(ID)" || (echo "Usage: make exec ID=<lxc-id> CMD=\"command\"" && exit 1)
+	@test -n "$(CMD)" || (echo "Usage: make exec ID=<lxc-id> CMD=\"command\"" && exit 1)
+	@$(SSH) "pct exec $(ID) -- $(CMD)"
+
 .PHONY: inventory
 inventory: ## Show infrastructure inventory
 	@cat infrastructure/inventory.yaml

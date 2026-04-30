@@ -6,7 +6,8 @@ GitOps repository for managing a Proxmox-based homelab environment.
 
 ```
 .
-├── infrastructure/    # Proxmox inventory (VMs, LXCs)
+├── ansible/           # Ansible playbooks and inventory
+├── infrastructure/    # Proxmox inventory (VMs, LXCs, services)
 ├── stacks/            # Docker Compose stacks (managed via Dockge)
 ├── secrets/           # Encrypted secrets (SOPS + age)
 ├── docs/              # Additional documentation
@@ -18,7 +19,13 @@ GitOps repository for managing a Proxmox-based homelab environment.
 
 - [age](https://github.com/FiloSottile/age) — `brew install age`
 - [sops](https://github.com/getsops/sops) — `brew install sops`
+- [Ansible](https://docs.ansible.com/) — `pip install ansible-core`
 - Docker (for local stack testing)
+
+```bash
+# Install Ansible collections
+ansible-galaxy collection install -r ansible/requirements.yaml
+```
 
 ## Quick Start
 
@@ -56,13 +63,24 @@ make edit-secret FILE=secrets/myapp.enc.yaml
 make decrypt FILE=secrets/myapp.enc.yaml
 ```
 
+## Infrastructure Management
+
+```bash
+make status                  # Show all VMs/LXCs
+make start ID=101            # Start a VM or LXC
+make stop ID=101             # Stop a VM or LXC
+make restart ID=101          # Restart a VM or LXC
+make shell ID=104            # Enter a LXC shell
+make exec ID=104 CMD="..."   # Run command in LXC
+make create-lxc ID=107 HOSTNAME=myapp  # Create new LXC
+```
+
 ## Stack Management
 
 ```bash
-make stack-up STACK=whoami      # Deploy
-make stack-down STACK=whoami    # Stop
-make stack-logs STACK=whoami    # Tail logs
-make stack-ps                   # Status of all stacks
+make deploy STACK=proxy      # Sync + secrets + restart
+make sync STACK=proxy        # Sync compose only
+make sync-secrets STACK=proxy # Push decrypted .env
 ```
 
 ## All Commands

@@ -1,0 +1,40 @@
+all:
+  hosts:
+    pve:
+      ansible_host: pve.lan
+      ansible_user: root
+
+  children:
+    proxmox:
+      hosts:
+        pve:
+
+    vms:
+      hosts:
+        truenas:
+          vmid: 100
+          ansible_host: 10.66.1.167
+        dev-vm:
+          vmid: 110
+          ansible_host: ""
+
+    lxc:
+      hosts:
+        plex:
+          vmid: 101
+          ansible_host: 10.66.1.233
+        cloudflared:
+          vmid: 102
+          ansible_host: 10.66.1.107
+        netbird:
+          vmid: 103
+          ansible_host: 10.66.1.112
+        dockge:
+          vmid: 104
+          ansible_host: 10.66.1.191
+        transmission:
+          vmid: 105
+          ansible_host: 10.66.1.222
+        immich:
+          vmid: 106
+          ansible_host: 10.66.1.231

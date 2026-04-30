@@ -1,0 +1,22 @@
+- name: Manage VM/LXC state
+  hosts: pve
+  gather_facts: false
+  vars:
+    id: ""
+    state: "start"  # start, stop, reboot
+  tasks:
+    - name: Validate input
+      assert:
+        that: id | length > 0
+        fail_msg: "Usage: -e id=<vmid> -e state=<start|stop|reboot>"
+
+    - name: "{{ state }} LXC {{ id }}"
+      command: "pct {{ state }} {{ id }}"
+      register: lxc_result
+      failed_when: false
+      changed_when: lxc_result.rc == 0
+
+    - name: "{{ state }} VM {{ id }} (fallback)"
+      command: "qm {{ state }} {{ id }}"
+      when: lxc_result.rc != 0
+      changed_when: true
