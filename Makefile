@@ -136,6 +136,12 @@ create-lxc: ## Create a new LXC (usage: make create-lxc ID=107 HOSTNAME=myapp)
 	@test -n "$(HOSTNAME)" || (echo "Usage: make create-lxc ID=<vmid> HOSTNAME=<name>" && exit 1)
 	@$(ANSIBLE) playbooks/create-lxc.yaml -e id=$(ID) -e hostname=$(HOSTNAME)
 
+.PHONY: destroy
+destroy: ## Destroy a VM or LXC (usage: make destroy ID=107 CONFIRM=yes)
+	@test -n "$(ID)" || (echo "Usage: make destroy ID=<vmid> CONFIRM=yes" && exit 1)
+	@test "$(CONFIRM)" = "yes" || (echo "⚠  Add CONFIRM=yes to proceed" && exit 1)
+	@$(ANSIBLE) playbooks/destroy.yaml -e id=$(ID) -e confirm=yes
+
 .PHONY: shell
 shell: ## Open shell into a LXC (usage: make shell ID=104)
 	@test -n "$(ID)" || (echo "Usage: make shell ID=<lxc-id>" && exit 1)
