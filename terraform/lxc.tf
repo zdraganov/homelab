@@ -15,6 +15,7 @@ locals {
         { volume = "/mnt/pve/Movies", path = "/mnt/Movies" },
         { volume = "/mnt/pve/TV", path = "/mnt/TV" },
       ]
+      gpu_passthrough = []
     }
     cloudflared = {
       vmid         = 102
@@ -28,6 +29,7 @@ locals {
       features     = { nesting = true, keyctl = true }
       firewall     = false
       mounts       = []
+      gpu_passthrough = []
     }
     netbird = {
       vmid         = 103
@@ -41,6 +43,7 @@ locals {
       features     = { nesting = true, keyctl = false }
       firewall     = true
       mounts       = []
+      gpu_passthrough = []
     }
     dockge = {
       vmid         = 104
@@ -54,6 +57,7 @@ locals {
       features     = { nesting = true, keyctl = true }
       firewall     = false
       mounts       = []
+      gpu_passthrough = []
     }
     transmission = {
       vmid         = 105
@@ -70,6 +74,7 @@ locals {
         { volume = "/mnt/pve/Movies", path = "/Downloads/Movies" },
         { volume = "/mnt/pve/TV", path = "/Downloads/TV" },
       ]
+      gpu_passthrough = []
     }
     immich = {
       vmid         = 106
@@ -84,6 +89,12 @@ locals {
       firewall     = false
       mounts = [
         { volume = "/mnt/pve/Photos", path = "/mnt/Photos" },
+      ]
+      gpu_passthrough = [
+        { path = "/dev/dri/renderD128", gid = 992 },
+        { path = "/dev/dri/renderD129", gid = 992 },
+        { path = "/dev/dri/card0", gid = 44 },
+        { path = "/dev/dri/card1", gid = 44 },
       ]
     }
   }
@@ -126,6 +137,14 @@ resource "proxmox_virtual_environment_container" "lxc" {
     }
   }
 
+  dynamic "device_passthrough" {
+    for_each = each.value.gpu_passthrough
+    content {
+      path = device_passthrough.value.path
+      gid  = device_passthrough.value.gid
+    }
+  }
+
   network_interface {
     name     = "eth0"
     bridge   = "vmbr0"
@@ -154,7 +173,6 @@ resource "proxmox_virtual_environment_container" "lxc" {
       description,
       tags,
       features,
-      device_passthrough,
     ]
   }
 }
