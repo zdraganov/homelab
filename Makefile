@@ -72,25 +72,30 @@ stack-ps: ## Show status of all stacks
 	done
 
 # --- Deploy / Sync ---
-DOCKGE_HOST ?= root@pve.lan
+PVE_HOST    ?= root@pve.lan
 DOCKGE_LXC  ?= 104
 SSH_KEY     ?= ~/.ssh/homelab_rsa
-SSH         := ssh -i $(SSH_KEY)
+SSH         := ssh -i $(SSH_KEY) $(PVE_HOST)
 
 .PHONY: sync
-sync: ## Sync stacks to Dockge host (usage: make sync or make sync STACK=proxy)
+sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
 	@if [ -n "$(STACK)" ]; then \
-		rsync -avz -e "ssh -i $(SSH_KEY)" stacks/$(STACK)/compose.yaml $(DOCKGE_HOST):/opt/stacks/$(STACK)/compose.yaml; \
+		$(SSH) "pct exec $(DOCKGE_LXC) -- mkdir -p /opt/stacks/$(STACK)"; \
+		cat stacks/$(STACK)/compose.yaml | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$(STACK)/compose.yaml"; \
 	else \
-		rsync -avz -e "ssh -i $(SSH_KEY)" --exclude='README.md' stacks/ $(DOCKGE_HOST):/opt/stacks/; \
+		for dir in stacks/*/; do \
+			stack=$$(basename $$dir); \
+			$(SSH) "pct exec $(DOCKGE_LXC) -- mkdir -p /opt/stacks/$$stack"; \
+			cat $$dir/compose.yaml | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$$stack/compose.yaml"; \
+		done; \
 	fi
-	@echo "✓ Synced to $(DOCKGE_HOST)"
+	@echo "✓ Synced to LXC $(DOCKGE_LXC)"
 
 .PHONY: sync-secrets
-sync-secrets: ## Decrypt and sync .env to Dockge host (usage: make sync-secrets STACK=proxy)
+sync-secrets: ## Decrypt and sync .env to Dockge LXC (usage: make sync-secrets STACK=proxy)
 	@test -n "$(STACK)" || (echo "Usage: make sync-secrets STACK=name" && exit 1)
 	@sops --decrypt secrets/$(STACK).enc.yaml | grep -v '^#' | sed 's/: /=/' > /tmp/.env.$(STACK)
-	@rsync -avz -e "ssh -i $(SSH_KEY)" /tmp/.env.$(STACK) $(DOCKGE_HOST):/opt/stacks/$(STACK)/.env
+	@cat /tmp/.env.$(STACK) | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$(STACK)/.env"
 	@rm -f /tmp/.env.$(STACK)
 	@echo "✓ Secrets deployed for $(STACK)"
 
@@ -99,7 +104,7 @@ deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@test -n "$(STACK)" || (echo "Usage: make deploy STACK=name" && exit 1)
 	@$(MAKE) sync STACK=$(STACK)
 	@if [ -f secrets/$(STACK).enc.yaml ]; then $(MAKE) sync-secrets STACK=$(STACK); fi
-	@$(SSH) $(DOCKGE_HOST) "cd /opt/stacks/$(STACK) && docker compose up -d"
+	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
 	@echo "✓ $(STACK) deployed"
 
 # --- Infrastructure ---
