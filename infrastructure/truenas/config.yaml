@@ -1,0 +1,59 @@
+# TrueNAS Configuration
+# VM 100 — 10.66.1.167
+# TrueNAS 13.0-U6.3
+
+disks:
+  - name: "da0"
+    model: "QEMU HARDDISK"
+    size: "32GB"
+    purpose: "boot / OS"
+
+  - name: "da1"
+    model: "QEMU HARDDISK (passthrough)"
+    size: "1863GB"
+    serial: "hdd01"
+    physical: "WDC WD20EZBX-00AYRA0 (WD-WX52D843J810)"
+    purpose: "data pool"
+
+pools:
+  - name: "store"
+    status: "ONLINE"
+    topology:
+      data:
+        type: "DISK"
+        vdev: "da1"
+    datasets:
+      - name: "store"
+        used: "~164GB"
+
+smb_shares:
+  - name: "TV"
+    path: "/mnt/store/TV"
+    enabled: true
+    mounted_on:
+      - "LXC 101 (plex): /mnt/TV"
+      - "LXC 105 (transmission): /Downloads/TV"
+
+  - name: "Movies"
+    path: "/mnt/store/Movies"
+    enabled: true
+    mounted_on:
+      - "LXC 101 (plex): /mnt/Movies"
+      - "LXC 105 (transmission): /Downloads/Movies"
+
+  - name: "Photos"
+    path: "/mnt/store/Photos"
+    enabled: true
+    mounted_on:
+      - "LXC 106 (immich): /mnt/Photos"
+
+services:
+  - name: "cifs"
+    enabled: true
+    state: "RUNNING"
+  - name: "nfs"
+    enabled: true
+    state: "RUNNING"
+  - name: "smartd"
+    enabled: true
+    state: "STOPPED"
