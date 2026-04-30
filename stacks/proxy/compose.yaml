@@ -1,0 +1,35 @@
+services:
+  proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - data:/data
+      - letsencrypt:/etc/letsencrypt
+    healthcheck:
+      test:
+        - CMD
+        - /usr/bin/check-health
+      interval: 30s
+      timeout: 3s
+
+  ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
+    user: 1000:1000
+    read_only: true
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=zdraganov.work,plex.zdraganov.work,photos.zdraganov.work
+      - PROXIED=is(zdraganov.work)||sub(zdraganov.work)&&!is(plex.zdraganov.work)
+      - IP6_PROVIDER=none
+
+volumes:
+  data:
+  letsencrypt:

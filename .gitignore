@@ -1,0 +1,20 @@
+# Secret keys (NEVER commit)
+secrets/age.key
+*.dec.yaml
+*.dec.yml
+*.dec.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Temp
+tmp/
+*.tmp

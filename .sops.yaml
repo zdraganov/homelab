@@ -1,0 +1,8 @@
+# SOPS configuration
+# All .enc.yaml files will be encrypted with the age key below.
+# Generate your key: age-keygen -o secrets/age.key
+# Then paste the PUBLIC key here.
+
+creation_rules:
+  - path_regex: \.enc\.(yaml|yml|env)$
+    age: "age17qlqwsm0z9jmw650l5ctz4zjy29e5ee4dnswajdjxn7kpf77h5kqpueyaf"
