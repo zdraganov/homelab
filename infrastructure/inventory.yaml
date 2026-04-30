@@ -14,8 +14,13 @@ vms:
     memory: 8192
     disk: "32G"
     ip: "10.66.1.167"
-    os: "TrueNAS"
+    os: "TrueNAS 13.0-U6.3"
     purpose: "NAS / storage"
+    passthrough_disk:
+      device: "/dev/disk/by-id/ata-WDC_WD20EZBX-00AYRA0_WD-WX52D843J810"
+      size: "1.8TB"
+      serial: "hdd01"
+      purpose: "data pool (store)"
 
   - id: 110
     name: "dev-vm"
@@ -34,8 +39,15 @@ lxc:
     memory: 2048
     disk: "8G"
     ip: "10.66.1.233"
-    os: "linux"
+    os: "ubuntu"
     purpose: "media server"
+    mounts:
+      - id: mp0
+        source: "/mnt/pve/Movies"  # CIFS from truenas.lan/Movies
+        target: "/mnt/Movies"
+      - id: mp1
+        source: "/mnt/pve/TV"  # CIFS from truenas.lan/TV
+        target: "/mnt/TV"
 
   - id: 102
     name: "cloudflared"
@@ -75,8 +87,15 @@ lxc:
     memory: 2048
     disk: "8G"
     ip: "10.66.1.222"
-    os: "linux"
+    os: "debian"
     purpose: "torrent client"
+    mounts:
+      - id: mp0
+        source: "/mnt/pve/Movies"  # CIFS from truenas.lan/Movies
+        target: "/Downloads/Movies"
+      - id: mp1
+        source: "/mnt/pve/TV"  # CIFS from truenas.lan/TV
+        target: "/Downloads/TV"
 
   - id: 106
     name: "immich"
@@ -88,6 +107,9 @@ lxc:
     purpose: "photo management"
     gpu_passthrough: true
     mounts:
-      - host: "/mnt/pve/Photos"
-        container: "/mnt/Photos"
+      - id: mp0
+        source: "/mnt/pve/Photos"  # CIFS from truenas.lan/Photos
+        target: "/mnt/Photos"
+        uid: 999
+        gid: 991
     notes: "Installed via community-scripts; mp0 parse warning is cosmetic"

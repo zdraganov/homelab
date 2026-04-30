@@ -1,0 +1,34 @@
+# Proxmox Storage Configuration
+# Source: /etc/pve/storage.cfg
+#
+# Data flow: TrueNAS (SMB) → Proxmox (CIFS storage) → LXC (bind mount)
+
+local:
+  type: "dir"
+  path: "/var/lib/vz"
+  content: "vztmpl,iso,backup"
+
+local-lvm:
+  type: "lvmthin"
+  thinpool: "data"
+  vgname: "pve"
+  content: "images,rootdir"
+
+cifs_mounts:
+  - name: "Movies"
+    server: "truenas.lan"
+    share: "Movies"
+    path: "/mnt/pve/Movies"
+    used_by: [101, 105]  # plex, transmission
+
+  - name: "TV"
+    server: "truenas.lan"
+    share: "TV"
+    path: "/mnt/pve/TV"
+    used_by: [101, 105]  # plex, transmission
+
+  - name: "Photos"
+    server: "truenas.lan"
+    share: "Photos"
+    path: "/mnt/pve/Photos"
+    used_by: [106]  # immich
