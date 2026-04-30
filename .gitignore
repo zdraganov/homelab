@@ -4,6 +4,12 @@ secrets/age.key
 *.dec.yml
 *.dec.env
 
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate*
+*.tfstate*
+.terraform/
+
 # OS
 .DS_Store
 Thumbs.db

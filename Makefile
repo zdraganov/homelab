@@ -108,6 +108,28 @@ deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
 	@echo "✓ $(STACK) deployed"
 
+# --- Infrastructure (Terraform) ---
+TF          := cd terraform && terraform
+TF_TOKEN    = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/proxmox.enc.yaml | grep PROXMOX_API_TOKEN | sed 's/PROXMOX_API_TOKEN: //')
+
+.PHONY: tf-init
+tf-init: ## Initialize Terraform
+	@$(TF) init
+
+.PHONY: tf-plan
+tf-plan: ## Plan infrastructure changes
+	@$(TF) plan -var="proxmox_api_token=$(TF_TOKEN)"
+
+.PHONY: tf-apply
+tf-apply: ## Apply infrastructure changes
+	@$(TF) apply -var="proxmox_api_token=$(TF_TOKEN)"
+
+.PHONY: tf-import
+tf-import: ## Import existing resource (usage: make tf-import RES=proxmox_virtual_environment_container.lxc["plex"] ID=pve/lxc/101)
+	@test -n "$(RES)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
+	@test -n "$(ID)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
+	@$(TF) import -var="proxmox_api_token=$(TF_TOKEN)" '$(RES)' '$(ID)'
+
 # --- Infrastructure (Ansible) ---
 ANSIBLE     := cd ansible && ansible-playbook
 
