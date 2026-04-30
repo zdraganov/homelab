@@ -1,8 +1,0 @@
-# Cloudflared Configuration
-# LXC 102 — 10.66.1.107
-
-service:
-  mode: "tunnel run (token-based)"
-  auto_update: false
-  systemd_unit: "cloudflared.service"
-  # Token stored in secrets/cloudflared.enc.yaml

@@ -4,6 +4,11 @@ SHELL := /bin/bash
 SOPS_AGE_KEY_FILE ?= secrets/age.key
 export SOPS_AGE_KEY_FILE
 
+PVE_HOST    ?= root@pve.lan
+DOCKGE_LXC  ?= 104
+SSH_KEY     ?= ~/.ssh/homelab_rsa
+SSH         := ssh -i $(SSH_KEY) $(PVE_HOST)
+
 # --- Help ---
 .PHONY: help
 help: ## Show this help
@@ -47,36 +52,29 @@ encrypt-file: ## Encrypt from .dec.yaml back (usage: make encrypt-file FILE=secr
 	@sops --encrypt --in-place $(subst .dec.,.enc.,$(FILE))
 	@echo "→ $(subst .dec.,.enc.,$(FILE)) encrypted"
 
+# --- Infrastructure (Terraform) ---
+TF          := cd terraform && terraform
+TF_TOKEN    = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/proxmox.enc.yaml | grep PROXMOX_API_TOKEN | sed 's/PROXMOX_API_TOKEN: //')
+
+.PHONY: tf-init
+tf-init: ## Initialize Terraform
+	@$(TF) init
+
+.PHONY: tf-plan
+tf-plan: ## Plan infrastructure changes
+	@$(TF) plan -var="proxmox_api_token=$(TF_TOKEN)"
+
+.PHONY: tf-apply
+tf-apply: ## Apply infrastructure changes
+	@$(TF) apply -var="proxmox_api_token=$(TF_TOKEN)"
+
+.PHONY: tf-import
+tf-import: ## Import existing resource (usage: make tf-import RES=... ID=pve/101)
+	@test -n "$(RES)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
+	@test -n "$(ID)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
+	@$(TF) import -var="proxmox_api_token=$(TF_TOKEN)" '$(RES)' '$(ID)'
+
 # --- Stacks ---
-.PHONY: stack-up
-stack-up: ## Deploy a stack (usage: make stack-up STACK=whoami)
-	@test -n "$(STACK)" || (echo "Usage: make stack-up STACK=name" && exit 1)
-	docker compose -f stacks/$(STACK)/compose.yaml up -d
-
-.PHONY: stack-down
-stack-down: ## Stop a stack (usage: make stack-down STACK=whoami)
-	@test -n "$(STACK)" || (echo "Usage: make stack-down STACK=name" && exit 1)
-	docker compose -f stacks/$(STACK)/compose.yaml down
-
-.PHONY: stack-logs
-stack-logs: ## Tail logs for a stack (usage: make stack-logs STACK=whoami)
-	@test -n "$(STACK)" || (echo "Usage: make stack-logs STACK=name" && exit 1)
-	docker compose -f stacks/$(STACK)/compose.yaml logs -f
-
-.PHONY: stack-ps
-stack-ps: ## Show status of all stacks
-	@for dir in stacks/*/; do \
-		stack=$$(basename $$dir); \
-		echo "\n\033[36m$$stack:\033[0m"; \
-		docker compose -f $$dir/compose.yaml ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || echo "  not running"; \
-	done
-
-# --- Deploy / Sync ---
-PVE_HOST    ?= root@pve.lan
-DOCKGE_LXC  ?= 104
-SSH_KEY     ?= ~/.ssh/homelab_rsa
-SSH         := ssh -i $(SSH_KEY) $(PVE_HOST)
-
 .PHONY: sync
 sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
 	@if [ -n "$(STACK)" ]; then \
@@ -108,61 +106,13 @@ deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
 	@echo "✓ $(STACK) deployed"
 
-# --- Infrastructure (Terraform) ---
-TF          := cd terraform && terraform
-TF_TOKEN    = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/proxmox.enc.yaml | grep PROXMOX_API_TOKEN | sed 's/PROXMOX_API_TOKEN: //')
-
-.PHONY: tf-init
-tf-init: ## Initialize Terraform
-	@$(TF) init
-
-.PHONY: tf-plan
-tf-plan: ## Plan infrastructure changes
-	@$(TF) plan -var="proxmox_api_token=$(TF_TOKEN)"
-
-.PHONY: tf-apply
-tf-apply: ## Apply infrastructure changes
-	@$(TF) apply -var="proxmox_api_token=$(TF_TOKEN)"
-
-.PHONY: tf-import
-tf-import: ## Import existing resource (usage: make tf-import RES=proxmox_virtual_environment_container.lxc["plex"] ID=pve/lxc/101)
-	@test -n "$(RES)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
-	@test -n "$(ID)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
-	@$(TF) import -var="proxmox_api_token=$(TF_TOKEN)" '$(RES)' '$(ID)'
-
-# --- Infrastructure (Ansible) ---
-ANSIBLE     := cd ansible && ansible-playbook
-
+# --- Utilities ---
 .PHONY: status
 status: ## Show live status of all VMs and LXCs
-	@$(ANSIBLE) playbooks/status.yaml
-
-.PHONY: start
-start: ## Start a VM or LXC (usage: make start ID=101)
-	@test -n "$(ID)" || (echo "Usage: make start ID=<vmid>" && exit 1)
-	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=start
-
-.PHONY: stop
-stop: ## Stop a VM or LXC (usage: make stop ID=101)
-	@test -n "$(ID)" || (echo "Usage: make stop ID=<vmid>" && exit 1)
-	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=stop
-
-.PHONY: restart
-restart: ## Restart a VM or LXC (usage: make restart ID=101)
-	@test -n "$(ID)" || (echo "Usage: make restart ID=<vmid>" && exit 1)
-	@$(ANSIBLE) playbooks/manage.yaml -e id=$(ID) -e state=reboot
-
-.PHONY: create-lxc
-create-lxc: ## Create a new LXC (usage: make create-lxc ID=107 HOSTNAME=myapp)
-	@test -n "$(ID)" || (echo "Usage: make create-lxc ID=<vmid> HOSTNAME=<name>" && exit 1)
-	@test -n "$(HOSTNAME)" || (echo "Usage: make create-lxc ID=<vmid> HOSTNAME=<name>" && exit 1)
-	@$(ANSIBLE) playbooks/create-lxc.yaml -e id=$(ID) -e hostname=$(HOSTNAME)
-
-.PHONY: destroy
-destroy: ## Destroy a VM or LXC (usage: make destroy ID=107 CONFIRM=yes)
-	@test -n "$(ID)" || (echo "Usage: make destroy ID=<vmid> CONFIRM=yes" && exit 1)
-	@test "$(CONFIRM)" = "yes" || (echo "⚠  Add CONFIRM=yes to proceed" && exit 1)
-	@$(ANSIBLE) playbooks/destroy.yaml -e id=$(ID) -e confirm=yes
+	@echo "\033[36mVMs:\033[0m"
+	@$(SSH) "qm list"
+	@echo "\n\033[36mLXC:\033[0m"
+	@$(SSH) "pct list"
 
 .PHONY: shell
 shell: ## Open shell into a LXC (usage: make shell ID=104)
@@ -175,17 +125,14 @@ exec: ## Run a command in a LXC (usage: make exec ID=104 CMD="docker ps")
 	@test -n "$(CMD)" || (echo "Usage: make exec ID=<lxc-id> CMD=\"command\"" && exit 1)
 	@$(SSH) "pct exec $(ID) -- $(CMD)"
 
-.PHONY: inventory
-inventory: ## Show infrastructure inventory
-	@cat infrastructure/inventory.yaml
-
 # --- Validation ---
 .PHONY: lint
-lint: ## Validate YAML files
+lint: ## Validate YAML and Terraform files
+	@cd terraform && terraform validate
 	@find . -name '*.yaml' -o -name '*.yml' | grep -v '.sops.yaml' | \
 		xargs -I{} sh -c 'python3 -c "import yaml; yaml.safe_load(open(\"{}\"))" 2>&1 && echo "✓ {}" || echo "✗ {}"'
 
 .PHONY: check-secrets
 check-secrets: ## Verify no plaintext secrets are committed
 	@echo "Checking for potential secrets in tracked files..."
-	@git grep -l -i "password\|secret\|api_key\|token" -- ':!Makefile' ':!*.md' ':!secrets/example.yaml' ':!.sops.yaml' || echo "✓ No plaintext secrets found"
+	@git grep -l -i "password\|secret\|api_key\|token" -- ':!Makefile' ':!*.md' ':!.sops.yaml' || echo "✓ No plaintext secrets found"

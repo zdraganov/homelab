@@ -6,8 +6,7 @@ GitOps repository for managing a Proxmox-based homelab environment.
 
 ```
 .
-├── ansible/           # Ansible playbooks and inventory
-├── infrastructure/    # Proxmox inventory (VMs, LXCs, services)
+├── terraform/         # Infrastructure as code (VMs, LXCs)
 ├── stacks/            # Docker Compose stacks (managed via Dockge)
 ├── secrets/           # Encrypted secrets (SOPS + age)
 ├── docs/              # Additional documentation
@@ -19,13 +18,7 @@ GitOps repository for managing a Proxmox-based homelab environment.
 
 - [age](https://github.com/FiloSottile/age) — `brew install age`
 - [sops](https://github.com/getsops/sops) — `brew install sops`
-- [Ansible](https://docs.ansible.com/) — `pip install ansible-core`
-- Docker (for local stack testing)
-
-```bash
-# Install Ansible collections
-ansible-galaxy collection install -r ansible/requirements.yaml
-```
+- [Terraform](https://www.terraform.io/) — `brew install terraform`
 
 ## Quick Start
 
@@ -41,38 +34,18 @@ make secrets-init
 
 # 4. Update .sops.yaml with the public key printed above
 
-# 5. Fill in infrastructure/inventory.yaml with your actual VMs/LXCs
-
-# 6. Add your existing stacks under stacks/<name>/compose.yaml
-```
-
-## Secret Management
-
-Secrets are encrypted with SOPS using age keys. The private key (`secrets/age.key`) is gitignored and must be kept safe.
-
-```bash
-# Create and encrypt a secret
-cp secrets/example.yaml secrets/myapp.enc.yaml
-# Edit values, then:
-make encrypt FILE=secrets/myapp.enc.yaml
-
-# Edit an encrypted secret
-make edit-secret FILE=secrets/myapp.enc.yaml
-
-# Decrypt to stdout
-make decrypt FILE=secrets/myapp.enc.yaml
+# 5. Initialize Terraform
+make tf-init
 ```
 
 ## Infrastructure Management
 
 ```bash
-make status                  # Show all VMs/LXCs
-make start ID=101            # Start a VM or LXC
-make stop ID=101             # Stop a VM or LXC
-make restart ID=101          # Restart a VM or LXC
-make shell ID=104            # Enter a LXC shell
-make exec ID=104 CMD="..."   # Run command in LXC
-make create-lxc ID=107 HOSTNAME=myapp  # Create new LXC
+make tf-plan             # Preview changes
+make tf-apply            # Apply changes
+make status              # Show all VMs/LXCs
+make shell ID=104        # Enter a LXC shell
+make exec ID=104 CMD="…" # Run command in LXC
 ```
 
 ## Stack Management
@@ -81,6 +54,14 @@ make create-lxc ID=107 HOSTNAME=myapp  # Create new LXC
 make deploy STACK=proxy      # Sync + secrets + restart
 make sync STACK=proxy        # Sync compose only
 make sync-secrets STACK=proxy # Push decrypted .env
+```
+
+## Secret Management
+
+```bash
+make edit-secret FILE=secrets/proxy.enc.yaml   # Edit in $EDITOR
+make decrypt-file FILE=secrets/proxy.enc.yaml  # Decrypt to .dec.yaml
+make encrypt-file FILE=secrets/proxy.dec.yaml  # Re-encrypt
 ```
 
 ## All Commands
