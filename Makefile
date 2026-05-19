@@ -93,7 +93,7 @@ sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
 .PHONY: sync-secrets
 sync-secrets: ## Decrypt and sync .env to Dockge LXC (usage: make sync-secrets STACK=proxy)
 	@test -n "$(STACK)" || (echo "Usage: make sync-secrets STACK=name" && exit 1)
-	@sops --decrypt secrets/$(STACK).enc.yaml | grep -v '^#' | sed 's/: /=/' > /tmp/.env.$(STACK)
+	@sops --decrypt --output-type dotenv secrets/$(STACK).enc.yaml > /tmp/.env.$(STACK)
 	@cat /tmp/.env.$(STACK) | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$(STACK)/.env"
 	@rm -f /tmp/.env.$(STACK)
 	@echo "✓ Secrets deployed for $(STACK)"
@@ -105,6 +105,14 @@ deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@if [ -f secrets/$(STACK).enc.yaml ]; then $(MAKE) sync-secrets STACK=$(STACK); fi
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
 	@echo "✓ $(STACK) deployed"
+
+.PHONY: redeploy
+redeploy: ## Sync compose, pull latest images and restart a stack (usage: make redeploy STACK=mariya-salon)
+	@test -n "$(STACK)" || (echo "Usage: make redeploy STACK=name" && exit 1)
+	@$(MAKE) sync STACK=$(STACK)
+	@if [ -f secrets/$(STACK).enc.yaml ]; then $(MAKE) sync-secrets STACK=$(STACK); fi
+	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose pull && docker compose up -d --remove-orphans'"
+	@echo "✓ $(STACK) redeployed with latest images"
 
 # --- Utilities ---
 .PHONY: status

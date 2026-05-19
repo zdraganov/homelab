@@ -26,8 +26,8 @@ services:
       - no-new-privileges:true
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - DOMAINS=zdraganov.work,plex.zdraganov.work,photos.zdraganov.work
-      - PROXIED=is(zdraganov.work)||sub(zdraganov.work)&&!is(plex.zdraganov.work)
+      - DOMAINS=zdraganov.work,plex.zdraganov.work,photos.zdraganov.work,mdraganova.work
+      - PROXIED=is(zdraganov.work)||sub(zdraganov.work)&&!is(plex.zdraganov.work)||is(mdraganova.work)
       - IP6_PROVIDER=none
 
 volumes:
