@@ -1,13 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-SOPS_AGE_KEY_FILE ?= secrets/age.key
-export SOPS_AGE_KEY_FILE
-
-PVE_HOST    ?= root@pve.lan
-DOCKGE_LXC  ?= 104
-SSH_KEY     ?= ~/.ssh/homelab_rsa
-SSH         := ssh -i $(SSH_KEY) $(PVE_HOST)
+include config.mk
 
 # --- Help ---
 .PHONY: help
