@@ -74,12 +74,18 @@ sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
 	@if [ -n "$(STACK)" ]; then \
 		$(SSH) "pct exec $(DOCKGE_LXC) -- mkdir -p /opt/stacks/$(STACK)"; \
 		cat stacks/$(STACK)/compose.yaml | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$(STACK)/compose.yaml"; \
+		if [ -f stacks/$(STACK)/Caddyfile ]; then \
+			cat stacks/$(STACK)/Caddyfile | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$(STACK)/Caddyfile"; \
+		fi; \
 	else \
 		for dir in stacks/*/; do \
 			stack=$$(basename $$dir); \
 			[ "$$stack" = "dockge" ] && continue; \
 			$(SSH) "pct exec $(DOCKGE_LXC) -- mkdir -p /opt/stacks/$$stack"; \
 			cat $$dir/compose.yaml | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$$stack/compose.yaml"; \
+			if [ -f $$dir/Caddyfile ]; then \
+				cat $$dir/Caddyfile | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /opt/stacks/$$stack/Caddyfile"; \
+			fi; \
 		done; \
 	fi
 	@echo "✓ Synced to LXC $(DOCKGE_LXC)"
@@ -108,7 +114,26 @@ redeploy: ## Sync compose, pull latest images and restart a stack (usage: make r
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose pull && docker compose up -d --remove-orphans'"
 	@echo "✓ $(STACK) redeployed with latest images"
 
-# --- Utilities ---
+.PHONY: setup-docker-auth
+setup-docker-auth: ## Configure ghcr.io credentials on the Dockge LXC from secrets/github.enc.yaml
+	@TOKEN=$$(SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/github.enc.yaml | grep GITHUB_TOKEN | sed 's/GITHUB_TOKEN: //'); \
+	USER=$$(SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/github.enc.yaml | grep GITHUB_USER | sed 's/GITHUB_USER: //'); \
+	$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'echo '\"$$TOKEN\"' | docker login ghcr.io -u '\"$$USER\"' --password-stdin'"
+	@echo "✓ ghcr.io credentials configured"
+
+# --- Router (OpenWrt) ---
+# Router config is managed from router/Makefile
+# Run: cd router && make apply
+# Or use these shortcuts:
+.PHONY: router-apply router-show dns-apply dns-show
+router-apply: ## Apply DNS + port forwarding to OpenWrt (delegates to router/Makefile)
+	@$(MAKE) -C $(dir $(abspath $(lastword $(MAKEFILE_LIST))))router apply
+
+router-show: ## Show current router config (delegates to router/Makefile)
+	@$(MAKE) -C $(dir $(abspath $(lastword $(MAKEFILE_LIST))))router show
+
+dns-apply: router-apply
+dns-show: router-show
 .PHONY: status
 status: ## Show live status of all VMs and LXCs
 	@echo "\033[36mVMs:\033[0m"

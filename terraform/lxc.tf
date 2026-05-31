@@ -17,20 +17,6 @@ locals {
       ]
       gpu_passthrough = []
     }
-    cloudflared = {
-      vmid         = 102
-      hostname     = "cloudflared"
-      cores        = 1
-      memory       = 512
-      disk         = 2
-      template     = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
-      onboot       = true
-      unprivileged = true
-      features     = { nesting = true, keyctl = true }
-      firewall     = false
-      mounts       = []
-      gpu_passthrough = []
-    }
     netbird = {
       vmid         = 103
       hostname     = "netbird"
@@ -54,26 +40,12 @@ locals {
       template     = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
       onboot       = true
       unprivileged = false
-      features     = { nesting = true, keyctl = true }
+      features     = { nesting = false, keyctl = false }
       firewall     = false
+      # Note: mount_point and features are managed manually via SSH (root@pam required)
+      # mp0: /mnt/pve/MariaSalon/uploads → /mnt/mariya-salon/uploads
+      # features: nesting=1,keyctl=1
       mounts       = []
-      gpu_passthrough = []
-    }
-    transmission = {
-      vmid         = 105
-      hostname     = "transmission"
-      cores        = 2
-      memory       = 2048
-      disk         = 8
-      template     = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
-      onboot       = true
-      unprivileged = false
-      features     = { nesting = true, keyctl = false }
-      firewall     = false
-      mounts = [
-        { volume = "/mnt/pve/Movies", path = "/Downloads/Movies" },
-        { volume = "/mnt/pve/TV", path = "/Downloads/TV" },
-      ]
       gpu_passthrough = []
     }
     immich = {
@@ -165,6 +137,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   unprivileged  = each.value.unprivileged
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       operating_system,
       initialization,
@@ -173,6 +146,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
       description,
       tags,
       features,
+      mount_point,
     ]
   }
 }

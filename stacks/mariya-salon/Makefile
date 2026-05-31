@@ -36,3 +36,7 @@ seed-prod: ## Run database seed on production
 		ghcr.io/zdraganov/mariya_salon:migrate \
 		npx tsx prisma/seed.ts'"
 	@echo "✓ Production seed complete"
+
+backup-now: ## Trigger an immediate database backup
+	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose exec backup sh -c \"pg_dump -h db -U \$$POSTGRES_USER \$$POSTGRES_DB | gzip > /backups/mariya-salon-\$$(date +%Y%m%d-%H%M%S)-manual.sql.gz && echo done\"'"
+	@echo "✓ Backup complete"

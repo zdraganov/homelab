@@ -11,17 +11,6 @@ locals {
       scsi_hardware = "virtio-scsi-single"
       firewall      = true
     }
-    dev-vm = {
-      vmid          = 110
-      name          = "dev-vm"
-      cores         = 4
-      memory        = 4096
-      disk          = 30
-      onboot        = false
-      cpu_type      = "qemu64"
-      scsi_hardware = "virtio-scsi-pci"
-      firewall      = false
-    }
   }
 }
 

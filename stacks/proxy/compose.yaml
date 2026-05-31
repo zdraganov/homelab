@@ -1,18 +1,20 @@
 services:
-  proxy:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx-proxy-manager
+  caddy:
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    container_name: caddy
     restart: unless-stopped
     network_mode: host
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
-      - data:/data
-      - letsencrypt:/etc/letsencrypt
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - /mnt/mariya-salon:/mnt/mariya-salon:ro
     healthcheck:
-      test:
-        - CMD
-        - /usr/bin/check-health
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
 
   ddns:
     image: favonia/cloudflare-ddns:latest
@@ -26,10 +28,10 @@ services:
       - no-new-privileges:true
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - DOMAINS=zdraganov.work,plex.zdraganov.work,photos.zdraganov.work,mdraganova.work
-      - PROXIED=is(zdraganov.work)||sub(zdraganov.work)&&!is(plex.zdraganov.work)||is(mdraganova.work)
+      - DOMAINS=plex.zdraganov.work,photos.zdraganov.work,mdraganova.work
+      - PROXIED=sub(zdraganov.work)&&!is(plex.zdraganov.work)||is(mdraganova.work)
       - IP6_PROVIDER=none
 
 volumes:
-  data:
-  letsencrypt:
+  caddy-data:
+  caddy-config:

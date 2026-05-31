@@ -1,0 +1,40 @@
+# Static DHCP/DNS host records for the homelab
+# Managed via: make dns-apply
+# Format: name, ip, mac (optional for pure DNS aliases)
+
+hosts:
+  # Infrastructure
+  - name: pve
+    ip: 10.66.1.66
+    mac: "9C:6B:00:66:61:F8"
+
+  - name: truenas
+    ip: 10.66.1.167
+    mac: "BC:24:11:C6:8A:22"
+
+  # LXC containers (Dockge host — runs proxy, mariya-salon, etc.)
+  - name: dockge
+    ip: 10.66.1.142
+    mac: "BC:24:11:4B:13:9B"
+
+  # DNS aliases for services running on Dockge LXC (DNS only, no DHCP)
+  # These are handled as dnsmasq address records, not host records
+  # proxy.lan → 10.66.1.142 (added via dns/aliases.yaml)
+
+  # Other LXCs
+  - name: plex
+    ip: 10.66.1.233
+    mac: "BC:24:11:C3:24:A3"
+
+  - name: immich
+    ip: 10.66.1.231
+    mac: "BC:24:11:A5:FD:B2"
+
+  # Devices
+  - name: NPI87C2E5
+    ip: 10.66.1.168
+    mac: "F4:4E:B4:1C:A5:AA"
+
+  - name: LGwebOSTV
+    ip: 10.66.1.208
+    mac: "20:28:BC:AE:D6:32"

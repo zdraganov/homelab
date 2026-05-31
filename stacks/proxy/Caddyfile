@@ -1,0 +1,29 @@
+{
+	# Use Cloudflare DNS challenge for all certificates
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	email admin@zdraganov.work
+}
+
+# Mariya Salon
+mdraganova.work {
+	handle /uploads/* {
+		root * /mnt/mariya-salon
+		file_server
+	}
+	reverse_proxy dockge.lan:3010
+}
+
+# Redirect www to apex
+www.mdraganova.work {
+	redir https://mdraganova.work{uri} permanent
+}
+
+# Plex
+plex.zdraganov.work {
+	reverse_proxy plex.lan:32400
+}
+
+# Immich (photos)
+photos.zdraganov.work {
+	reverse_proxy immich.lan:2283
+}

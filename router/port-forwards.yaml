@@ -1,0 +1,22 @@
+# Port forwarding rules for OpenWrt
+# Managed via: make router-apply
+# Changes here are applied atomically — all existing redirects are replaced
+
+port_forwards:
+  - name: Proxy HTTPS
+    proto: tcp
+    src_port: 443
+    dest_ip: 10.66.1.142   # dockge.lan (Caddy)
+    dest_port: 443
+
+  - name: Proxy HTTP
+    proto: tcp
+    src_port: 80
+    dest_ip: 10.66.1.142   # dockge.lan (Caddy)
+    dest_port: 80
+
+  - name: Plex
+    proto: tcp
+    src_port: 32400
+    dest_ip: 10.66.1.233   # plex.lan
+    dest_port: 32400
