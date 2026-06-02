@@ -40,3 +40,14 @@ seed-prod: ## Run database seed on production
 backup-now: ## Trigger an immediate database backup
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose exec backup sh -c \"pg_dump -h db -U \$$POSTGRES_USER \$$POSTGRES_DB | gzip > /backups/mariya-salon-\$$(date +%Y%m%d-%H%M%S)-manual.sql.gz && echo done\"'"
 	@echo "✓ Backup complete"
+
+cleanup-uploads: ## Remove orphan upload files not referenced in the database
+	@cat $(HOMELAB_ROOT)/stacks/$(STACK)/cleanup-uploads.js | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/cleanup-uploads.js"
+	@$(SSH) "pct exec $(DOCKGE_LXC) -- docker run --rm \
+		--network $(STACK)_default \
+		--env-file /opt/stacks/$(STACK)/.env \
+		-v /mnt/mariya-salon/uploads:/uploads \
+		-v /tmp/cleanup-uploads.js:/app/cleanup-uploads.js \
+		ghcr.io/zdraganov/mariya_salon:migrate \
+		node /app/cleanup-uploads.js"
+	@echo "✓ Cleanup complete"
