@@ -111,7 +111,8 @@ see [docs/actions-runner.md](docs/actions-runner.md), managed via `make runner-i
 
 The division of labour is deliberate: **GitHub deploys images, the workstation deploys configuration.**
 The runner only runs `docker compose pull && up -d && image prune`; it never writes `compose.yaml`
-(owned here) or `.env` (needs the age key, which never leaves the workstation). Keep that line intact —
+(owned here) or `.env` (needs the age key, which never leaves the workstation). It is triggered by hand
+via `make deploy-prod` in the app repo — separate from the image build, and never automatic. Keep that line intact —
 a runner that starts writing config would make this repo stop being the source of truth.
 
 Never register a runner against *this* repo: `homelab` is public, and a fork PR can execute arbitrary

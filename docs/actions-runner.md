@@ -17,6 +17,10 @@ an unmigrated database. Anything that deploys this stack must go through compose
 
 ## What the runner is allowed to do
 
+The deploy lives in its own workflow — `deploy.yml` in the app repo, `workflow_dispatch` only, triggered
+with `make deploy-prod` from there. It is deliberately separate from `build.yml`: publishing an image and
+putting it into production are different decisions.
+
 The deploy job **only pulls images and restarts the stack**. It deliberately does not:
 
 - check out the application source (nothing on the LXC needs it)
@@ -25,6 +29,9 @@ The deploy job **only pulls images and restarts the stack**. It deliberately doe
 
 So the split stays clean: **GitHub deploys new images, the workstation deploys new configuration.**
 A config change is still `make deploy STACK=mariya-salon` from here.
+
+Note the deploy is **ref-independent**: it pulls whatever ghcr serves for `:latest` and never checks out
+the app repo, so dispatching it from a branch does not deploy that branch.
 
 ## Install
 
@@ -59,7 +66,8 @@ The runner is registered to **`mariya_salon`, which is private**. That is load-b
 runner on a *public* repo is a known foot-gun: a pull request from a fork can execute arbitrary code on
 it. For the same reason, **never register a runner against this repo — `homelab` is public.**
 
-The deploy job is additionally gated to `refs/heads/main` and has no `pull_request` trigger.
+`deploy.yml` is `workflow_dispatch` only — there is no `push` or `pull_request` trigger, so a deploy
+never happens without someone asking for one.
 
 Two limitations to be honest about:
 
@@ -91,7 +99,7 @@ make exec ID=104 CMD="df -h /"
 
 | Symptom | Cause |
 | --- | --- |
-| Job queued forever | Runner offline — `make runner-status`, then `systemctl status 'actions.runner.*'` on the LXC |
+| Job queued forever | Runner offline — `make runner-status`, then `systemctl status 'actions.runner.*'` on the LXC. `make deploy-prod` pre-checks this and refuses to dispatch |
 | `denied` / `unauthorized` on pull | ghcr credentials expired — `make setup-docker-auth` |
 | `no space left on device` | Prune step never ran — `make exec ID=104 CMD="docker image prune -f"` |
 | Runner fails to start after install | Missing .NET deps — re-run `./bin/installdependencies.sh` in `/opt/actions-runner` |
