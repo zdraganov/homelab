@@ -159,6 +159,13 @@ RUNNER_REPO    ?= zdraganov/mariya_salon
 RUNNER_NAME    ?= dockge-lxc$(DOCKGE_LXC)
 RUNNER_LABELS  ?= self-hosted,homelab,dockge
 RUNNER_USER    ?= github-runner
+# One install directory per repo. A self-hosted runner binds to a single
+# repository -- GitHub scopes runners at repo, org or enterprise level, and
+# there is no account level -- so a second repo needs a second runner, not a
+# re-registration of the first. Without this the second install would stop and
+# overwrite the first, and you would only notice when its deploys queued forever.
+RUNNER_SLUG    := $(notdir $(RUNNER_REPO))
+RUNNER_DIR     ?= /opt/actions-runner/$(RUNNER_SLUG)
 RUNNER_VERSION ?= 2.336.0
 RUNNER_SHA256  ?= 04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d
 
@@ -177,6 +184,7 @@ runner-install: ## Install/re-register the Actions runner on the Dockge LXC
 		RUNNER_NAME=$(RUNNER_NAME) \
 		RUNNER_LABELS=$(RUNNER_LABELS) \
 		RUNNER_USER=$(RUNNER_USER) \
+		RUNNER_DIR=$(RUNNER_DIR) \
 		bash /tmp/install-runner.sh"
 	@echo "\u2713 runner $(RUNNER_NAME) registered with $(RUNNER_REPO)"
 
@@ -197,6 +205,7 @@ runner-remove: ## Stop, uninstall and deregister the Actions runner
 	$(SSH) "pct exec $(DOCKGE_LXC) -- env \
 		RUNNER_TOKEN_FILE=/tmp/runner-token \
 		RUNNER_USER=$(RUNNER_USER) \
+		RUNNER_DIR=$(RUNNER_DIR) \
 		bash /tmp/remove-runner.sh"
 
 # --- Validation ---

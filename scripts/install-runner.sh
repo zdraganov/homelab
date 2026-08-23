@@ -10,7 +10,7 @@ set -euo pipefail
 RUNNER_NAME="${RUNNER_NAME:-dockge}"
 RUNNER_LABELS="${RUNNER_LABELS:-self-hosted,homelab,dockge}"
 RUNNER_USER="${RUNNER_USER:-github-runner}"
-RUNNER_DIR="${RUNNER_DIR:-/opt/actions-runner}"
+RUNNER_DIR="${RUNNER_DIR:-/opt/actions-runner/default}"
 
 # The registration token arrives as a file rather than an argument so it never
 # lands in the Proxmox host's process table. It is single-use and short-lived.

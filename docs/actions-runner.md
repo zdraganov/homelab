@@ -49,6 +49,41 @@ The runner tarball is checksum-verified against `RUNNER_SHA256` in the root `Mak
 Re-running it is safe — `--replace` takes over the existing registration instead of accumulating dead
 runner entries.
 
+### Adding a second repo
+
+GitHub scopes self-hosted runners at **repository, organization or enterprise** level — there is no
+account level. `zdraganov` is a personal user account, so two personal repos cannot share one runner;
+each needs its own registration.
+
+```bash
+make runner-install RUNNER_REPO=zdraganov/some-other-app
+```
+
+Installs are namespaced by repo (`/opt/actions-runner/<repo>`, one systemd service each), so this adds a
+runner rather than replacing the existing one. Getting that wrong is quiet and unpleasant: the second
+install would take over the first's directory and service, and you would find out when the salon's
+deploys started queueing forever.
+
+Each runner costs roughly 200 MB of disk and a ~150 MB idle process. Two or three is fine on this LXC;
+past that, an organization-scoped runner is the better shape.
+
+### If you outgrow per-repo runners
+
+Sharing one runner across repos requires a **GitHub organization** (free). Three things have to be true
+before that is safe or even correct:
+
+1. **Only private repos in the org.** A private repo cannot take fork PRs from strangers, which is the
+   attack that makes self-hosted runners dangerous. GitHub's own guidance is to use self-hosted runners
+   only with private repositories. Runner *groups* would let you scope access explicitly, but the docs
+   disagree about whether the free plan can create them — do not depend on that toggle. `homelab` is
+   public today and would have to become private first.
+2. **Registration moves to the org endpoint.** `/orgs/{org}/actions/runners/registration-token` rather
+   than the repo one, registered against the org URL. `make runner-install` would need updating.
+3. **The ghcr image path changes.** `build.yml` derives its image name from `${{ github.repository }}`,
+   so transferring a repo moves publishes from `ghcr.io/zdraganov/<app>` to `ghcr.io/<org>/<app>`. Any
+   `compose.yaml` pinning the old path keeps pulling a now-frozen image — deploys report success while
+   running stale code. Update the compose file in the same change and re-verify `make setup-docker-auth`.
+
 ### Upgrading the runner
 
 GitHub deprecates old runner versions. Bump both variables together in the root `Makefile` and re-run:
