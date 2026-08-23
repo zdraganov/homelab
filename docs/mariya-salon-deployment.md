@@ -32,9 +32,13 @@ Defined in [../stacks/mariya-salon/compose.yaml](../stacks/mariya-salon/compose.
 
 ## Images
 
-Both images are built and pushed by GitHub Actions in the **`mariya_salon` application repo** on every
-push to `main` — nothing is built from this repo. Trigger a manual build from
-**Actions → Build & Push Docker Image → Run workflow** in the GitHub UI.
+Both images are built and pushed by the `Build & Push Docker Image` workflow in the **`mariya_salon`
+application repo** — nothing is built from this repo. That workflow is **`workflow_dispatch` only**: it
+does *not* run on push to `main`, so a merged commit is not deployable until someone triggers a build
+from **Actions → Build & Push Docker Image → Run workflow** in the GitHub UI.
+
+The app image is tagged both `:latest` and `:sha-<commit>`; the migrator is tagged `:migrate` only.
+The immutable `sha-` tags are the rollback path — pin `app` to one in `compose.yaml` and redeploy.
 
 Because the tags (`:latest`, `:migrate`) are mutable, a new build needs a **pull**, not just a restart:
 
