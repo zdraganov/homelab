@@ -49,6 +49,12 @@ The runner tarball is checksum-verified against `RUNNER_SHA256` in the root `Mak
 Re-running it is safe — `--replace` takes over the existing registration instead of accumulating dead
 runner entries.
 
+**Run `make setup-docker-auth` after the first install.** Docker keeps credentials per-user in
+`$HOME/.docker/config.json`, so logging in as root leaves the runner user unauthenticated. The symptom is
+confusing: deploys fail with `error from registry: unauthorized` while the identical pull works fine when
+you try it by hand over SSH, because that lands you as root. `setup-docker-auth` now logs in as both, and
+skips the runner user with a note if it does not exist yet.
+
 ### Adding a second repo
 
 GitHub scopes self-hosted runners at **repository, organization or enterprise** level — there is no
@@ -135,6 +141,6 @@ make exec ID=104 CMD="df -h /"
 | Symptom | Cause |
 | --- | --- |
 | Job queued forever | Runner offline — `make runner-status`, then `systemctl status 'actions.runner.*'` on the LXC. `make deploy-prod` pre-checks this and refuses to dispatch |
-| `denied` / `unauthorized` on pull | ghcr credentials expired — `make setup-docker-auth` |
+| `denied` / `unauthorized` on pull | ghcr credentials missing for the *runner user* — `make setup-docker-auth`. Docker stores credentials per-user, so a login as root does nothing for the runner |
 | `no space left on device` | Prune step never ran — `make exec ID=104 CMD="docker image prune -f"` |
 | Runner fails to start after install | Missing .NET deps — re-run `./bin/installdependencies.sh` in `/opt/actions-runner` |
