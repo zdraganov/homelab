@@ -103,6 +103,20 @@ Ports 80/443 reach it only because `router/port-forwards.yaml` DNATs them to `10
 public hostname usually means editing the Caddyfile, the DDNS `DOMAINS` list, and possibly DNS aliases,
 then `make deploy STACK=proxy` **and** `make router-apply`.
 
+## Remote deploys
+
+A self-hosted Actions runner on LXC 104 lets the private `mariya_salon` repo redeploy its own stack —
+see [docs/actions-runner.md](docs/actions-runner.md), managed via `make runner-install` / `runner-status`
+/ `runner-remove`.
+
+The division of labour is deliberate: **GitHub deploys images, the workstation deploys configuration.**
+The runner only runs `docker compose pull && up -d && image prune`; it never writes `compose.yaml`
+(owned here) or `.env` (needs the age key, which never leaves the workstation). Keep that line intact —
+a runner that starts writing config would make this repo stop being the source of truth.
+
+Never register a runner against *this* repo: `homelab` is public, and a fork PR can execute arbitrary
+code on a self-hosted runner. `mariya_salon` being private is what makes the arrangement safe.
+
 ## Validation
 
 ```bash

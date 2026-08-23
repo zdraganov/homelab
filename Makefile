@@ -6,7 +6,7 @@ include config.mk
 # --- Help ---
 .PHONY: help
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # --- Secrets ---
@@ -151,6 +151,53 @@ exec: ## Run a command in a LXC (usage: make exec ID=104 CMD="docker ps")
 	@test -n "$(ID)" || (echo "Usage: make exec ID=<lxc-id> CMD=\"command\"" && exit 1)
 	@test -n "$(CMD)" || (echo "Usage: make exec ID=<lxc-id> CMD=\"command\"" && exit 1)
 	@$(SSH) "pct exec $(ID) -- $(CMD)"
+
+# --- GitHub Actions runner (Dockge LXC) ---
+# Registers a self-hosted runner so the app repo can deploy without any inbound
+# path into the homelab. See docs/actions-runner.md before changing RUNNER_REPO.
+RUNNER_REPO    ?= zdraganov/mariya_salon
+RUNNER_NAME    ?= dockge-lxc$(DOCKGE_LXC)
+RUNNER_LABELS  ?= self-hosted,homelab,dockge
+RUNNER_USER    ?= github-runner
+RUNNER_VERSION ?= 2.336.0
+RUNNER_SHA256  ?= 04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d
+
+.PHONY: runner-install
+runner-install: ## Install/re-register the Actions runner on the Dockge LXC
+	@command -v gh >/dev/null || (echo "gh CLI required (brew install gh)" && exit 1)
+	@TOKEN=$$(gh api -X POST repos/$(RUNNER_REPO)/actions/runners/registration-token --jq .token); \
+	test -n "$$TOKEN" || (echo "could not obtain a registration token for $(RUNNER_REPO)" && exit 1); \
+	cat scripts/install-runner.sh | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/install-runner.sh"; \
+	echo "$$TOKEN" | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/runner-token"; \
+	$(SSH) "pct exec $(DOCKGE_LXC) -- env \
+		RUNNER_URL=https://github.com/$(RUNNER_REPO) \
+		RUNNER_TOKEN_FILE=/tmp/runner-token \
+		RUNNER_VERSION=$(RUNNER_VERSION) \
+		RUNNER_SHA256=$(RUNNER_SHA256) \
+		RUNNER_NAME=$(RUNNER_NAME) \
+		RUNNER_LABELS=$(RUNNER_LABELS) \
+		RUNNER_USER=$(RUNNER_USER) \
+		bash /tmp/install-runner.sh"
+	@echo "\u2713 runner $(RUNNER_NAME) registered with $(RUNNER_REPO)"
+
+.PHONY: runner-status
+runner-status: ## Show runner service state on the LXC and registration state on GitHub
+	@echo "\033[36mService on LXC $(DOCKGE_LXC):\033[0m"
+	@$(SSH) "pct exec $(DOCKGE_LXC) -- systemctl status 'actions.runner.*' --no-pager -n 5" || true
+	@echo "\n\033[36mRegistered with $(RUNNER_REPO):\033[0m"
+	@gh api repos/$(RUNNER_REPO)/actions/runners \
+		--jq '.runners[] | "\(.name)\t\(.status)\tbusy=\(.busy)\t[\([.labels[].name] | join(","))]"'
+
+.PHONY: runner-remove
+runner-remove: ## Stop, uninstall and deregister the Actions runner
+	@command -v gh >/dev/null || (echo "gh CLI required" && exit 1)
+	@TOKEN=$$(gh api -X POST repos/$(RUNNER_REPO)/actions/runners/remove-token --jq .token); \
+	cat scripts/remove-runner.sh | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/remove-runner.sh"; \
+	echo "$$TOKEN" | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/runner-token"; \
+	$(SSH) "pct exec $(DOCKGE_LXC) -- env \
+		RUNNER_TOKEN_FILE=/tmp/runner-token \
+		RUNNER_USER=$(RUNNER_USER) \
+		bash /tmp/remove-runner.sh"
 
 # --- Validation ---
 .PHONY: lint
