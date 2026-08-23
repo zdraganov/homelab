@@ -186,13 +186,13 @@ runner-install: ## Install/re-register the Actions runner on the Dockge LXC
 		RUNNER_USER=$(RUNNER_USER) \
 		RUNNER_DIR=$(RUNNER_DIR) \
 		bash /tmp/install-runner.sh"
-	@echo "\u2713 runner $(RUNNER_NAME) registered with $(RUNNER_REPO)"
+	@echo "✓ runner $(RUNNER_NAME) registered with $(RUNNER_REPO)"
 
 .PHONY: runner-status
 runner-status: ## Show runner service state on the LXC and registration state on GitHub
-	@echo "\033[36mService on LXC $(DOCKGE_LXC):\033[0m"
+	@printf "\033[36mService on LXC $(DOCKGE_LXC):\033[0m\n"
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- systemctl status 'actions.runner.*' --no-pager -n 5" || true
-	@echo "\n\033[36mRegistered with $(RUNNER_REPO):\033[0m"
+	@printf "\n\033[36mRegistered with $(RUNNER_REPO):\033[0m\n"
 	@gh api repos/$(RUNNER_REPO)/actions/runners \
 		--jq '.runners[] | "\(.name)\t\(.status)\tbusy=\(.busy)\t[\([.labels[].name] | join(","))]"'
 
