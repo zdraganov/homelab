@@ -5,7 +5,7 @@ set -euo pipefail
 
 : "${RUNNER_TOKEN_FILE:?RUNNER_TOKEN_FILE is required}"
 RUNNER_USER="${RUNNER_USER:-github-runner}"
-RUNNER_DIR="${RUNNER_DIR:-/opt/actions-runner}"
+RUNNER_DIR="${RUNNER_DIR:-/opt/actions-runner/default}"
 
 RUNNER_TOKEN="$(cat "$RUNNER_TOKEN_FILE")"
 rm -f "$RUNNER_TOKEN_FILE"
@@ -25,4 +25,6 @@ runuser -u "$RUNNER_USER" -- ./config.sh remove --token "$RUNNER_TOKEN" || true
 
 cd /
 rm -rf "$RUNNER_DIR"
+# Tidy the shared parent only once the last runner is gone.
+rmdir --ignore-fail-on-non-empty "$(dirname "$RUNNER_DIR")" 2>/dev/null || true
 echo "✓ runner removed (user '$RUNNER_USER' left in place)"
