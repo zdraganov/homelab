@@ -116,9 +116,16 @@ redeploy: ## Sync compose, pull latest images and restart a stack (usage: make r
 
 .PHONY: setup-docker-auth
 setup-docker-auth: ## Configure ghcr.io credentials on the Dockge LXC from secrets/github.enc.yaml
-	@TOKEN=$$(SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/github.enc.yaml | grep GITHUB_TOKEN | sed 's/GITHUB_TOKEN: //'); \
-	USER=$$(SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/github.enc.yaml | grep GITHUB_USER | sed 's/GITHUB_USER: //'); \
-	$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'echo '\"$$TOKEN\"' | docker login ghcr.io -u '\"$$USER\"' --password-stdin'"
+	@CREDS=$$(mktemp); \
+	SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt secrets/github.enc.yaml | \
+		awk '/GITHUB_USER:/ {u=$$2} /GITHUB_TOKEN:/ {t=$$2} END {print u; print t}' > $$CREDS; \
+	cat scripts/setup-docker-auth.sh | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/setup-docker-auth.sh"; \
+	cat $$CREDS | $(SSH) "pct push $(DOCKGE_LXC) /dev/stdin /tmp/ghcr-creds"; \
+	rm -f $$CREDS; \
+	$(SSH) "pct exec $(DOCKGE_LXC) -- env \
+		GHCR_CREDS_FILE=/tmp/ghcr-creds \
+		RUNNER_USER=$(RUNNER_USER) \
+		bash /tmp/setup-docker-auth.sh"
 	@echo "✓ ghcr.io credentials configured"
 
 # --- Router (OpenWrt) ---
