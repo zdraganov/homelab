@@ -10,7 +10,7 @@ OPENWRT_SSH  := ssh -i ~/.ssh/homelab_openwrt $(OPENWRT_HOST)
 .PHONY: help apply show
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 apply: ## Apply DNS, DHCP and port forwarding config to OpenWrt

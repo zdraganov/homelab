@@ -10,7 +10,7 @@ STACK := mariya-salon
 .PHONY: help deploy redeploy logs sync-calendar seed-prod
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 deploy: ## Sync compose + secrets and restart the stack
