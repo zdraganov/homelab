@@ -66,6 +66,8 @@ when invoked through `make`. Some targets also set it explicitly because they sh
 
 Some secrets files (`plex`, `truenas`, `proxmox`, `github`, `cloudflared`, `immich`) have **no matching stack** —
 they feed Terraform, `setup-docker-auth`, or services configured by hand on their own LXC.
+Immich in particular is a native community-scripts install on LXC 106, updated from inside the
+container — see [docs/immich.md](docs/immich.md).
 
 ## Terraform
 

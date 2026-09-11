@@ -59,8 +59,13 @@ locals {
       unprivileged = false
       features     = { nesting = true, keyctl = false }
       firewall     = false
+      # /mnt/immich-photos is a host-side CIFS mount of //truenas.lan/Photos (see
+      # /etc/fstab on pve) with uid=999,gid=991 so the `immich` user inside the
+      # container can write. The Proxmox storage mount /mnt/pve/Photos is root-only
+      # and unusable for this. Terraform ignores mount_point changes; apply on the
+      # host with `pct set 106 -mp0 /mnt/immich-photos,mp=/mnt/Photos`.
       mounts = [
-        { volume = "/mnt/pve/Photos", path = "/mnt/Photos" },
+        { volume = "/mnt/immich-photos", path = "/mnt/Photos" },
       ]
       gpu_passthrough = [
         { path = "/dev/dri/renderD128", gid = 992 },
