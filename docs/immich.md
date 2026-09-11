@@ -83,8 +83,8 @@ Known pitfalls:
 - The helper pins the Immich and VectorChord versions it has tested; you cannot pick a version.
 - If the Debian `testing` repo is already present the helper skips `apt update` and can 404 on stale
   package versions. Run `apt-get update` inside the container first.
-- `make exec`/`make shell` need `~/.ssh/homelab_rsa`; on workstations that keep the key in an SSH agent
-  use `ssh root@pve.lan` directly.
+- `make exec`/`make shell` reach the host through the key in `config.mk` (`SSH_KEY`, the public half of
+  the agent-held Proxmox key); `ssh root@pve.lan` directly works too.
 
 Rollback: `pct restore 106 local:backup/<vzdump archive> --force`. The media share is not part of the
 archive and is unaffected.

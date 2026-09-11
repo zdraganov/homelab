@@ -8,8 +8,10 @@ Declarative source of truth for a single-node Proxmox homelab (`pve.lan`, subnet
 There is no CI/CD and no agent on the server: **every change is pushed from a workstation by running `make`**.
 Editing a file here changes nothing until the matching `make` target runs.
 
-Requires `age`, `sops`, `terraform`, `python3` (with PyYAML), and the SSH keys
-`~/.ssh/homelab_rsa` (Proxmox) and `~/.ssh/homelab_openwrt` (router).
+Requires `age`, `sops`, `terraform`, `python3` (with PyYAML), the age key at the gitignored
+`secrets/age.key`, and the SSH keys for Proxmox and the router (`~/.ssh/homelab_openwrt`). The Proxmox
+key is served by the Bitwarden SSH agent; `config.mk` passes its public half, `~/.ssh/homelab.pub`, to
+`ssh -i`, which is how ssh is told which agent key to use.
 
 ## The three control planes
 
@@ -23,7 +25,7 @@ Secrets ([secrets/](secrets/), SOPS + age) cut across all three.
 
 ## Everything goes through the Proxmox host
 
-No target is reached directly. `config.mk` defines `SSH := ssh -i ~/.ssh/homelab_rsa root@pve.lan`,
+No target is reached directly. `config.mk` defines `SSH := ssh -i ~/.ssh/homelab.pub root@pve.lan`,
 and container work is `pct exec <id>` / `pct push <id>` on the other side of that hop.
 When debugging, reproduce the same path: `make exec ID=104 CMD="docker ps"`, not a direct SSH to a container.
 
