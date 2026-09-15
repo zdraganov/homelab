@@ -68,6 +68,51 @@ tf-import: ## Import existing resource (usage: make tf-import RES=... ID=pve/101
 	@test -n "$(ID)" || (echo "Usage: make tf-import RES=<resource> ID=<proxmox-id>" && exit 1)
 	@$(TF) import -var="proxmox_api_token=$(TF_TOKEN)" '$(RES)' '$(ID)'
 
+# --- Cloudflare Zero Trust (Terraform, second root) ---
+# Access in front of mdraganova.work/admin and the MCP server portal for AI
+# assistants — see docs/mariya-salon-deployment.md. Needs its own token: the
+# proxy stack's CLOUDFLARE_API_TOKEN is DNS-only and stays that way.
+CF          := cd terraform/cloudflare && terraform
+CF_TOKEN    = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt --extract '["CLOUDFLARE_API_TOKEN"]' secrets/terraform-cloudflare.enc.yaml)
+# The app and the portal must agree on the bearer secret, so it is read from the
+# app's own env file rather than kept twice.
+MCP_SECRET  = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt --extract '["MCP_SECRET"]' secrets/mariya-salon.enc.yaml)
+# Credentials go in front of `terraform` itself: put before the `cd`, an inline
+# assignment applies to the cd only and terraform runs with nothing.
+CF_AUTH     = cd terraform/cloudflare && CLOUDFLARE_API_TOKEN="$(CF_TOKEN)" TF_VAR_mcp_secret="$(MCP_SECRET)" terraform
+CF_ACCOUNT  = $(shell sed -n 's/^account_id *= *"\(.*\)"/\1/p' terraform/cloudflare/terraform.tfvars)
+
+.PHONY: cf-init
+cf-init: ## Initialize the Cloudflare Terraform root
+	@$(CF) init
+
+.PHONY: cf-plan
+cf-plan: ## Plan Cloudflare Zero Trust changes
+	@$(CF_AUTH) plan
+
+.PHONY: cf-apply
+cf-apply: ## Apply Cloudflare Zero Trust changes
+	@$(CF_AUTH) apply
+
+.PHONY: cf-output
+cf-output: ## Show Cloudflare outputs (the MCP portal URL among them)
+	@$(CF) output
+
+.PHONY: cf-import-admin
+cf-import-admin: ## One-off: adopt the existing /admin Access application (usage: make cf-import-admin APP_ID=<id>)
+	@test -n "$(APP_ID)" || (echo "Usage: make cf-import-admin APP_ID=<access application id>" && exit 1)
+	@$(CF_AUTH) import module.zero_trust.cloudflare_zero_trust_access_application.admin 'accounts/$(CF_ACCOUNT)/$(APP_ID)'
+
+.PHONY: cf-import-portal-app
+cf-import-portal-app: ## Only if creating the portal auto-created its Access application (usage: make cf-import-portal-app APP_ID=<id>)
+	@test -n "$(APP_ID)" || (echo "Usage: make cf-import-portal-app APP_ID=<access application id>" && exit 1)
+	@$(CF_AUTH) import module.zero_trust.cloudflare_zero_trust_access_application.portal 'accounts/$(CF_ACCOUNT)/$(APP_ID)'
+
+.PHONY: cf-import-mcp-app
+cf-import-mcp-app: ## Only if registering the server auto-created its Access application (usage: make cf-import-mcp-app APP_ID=<id>)
+	@test -n "$(APP_ID)" || (echo "Usage: make cf-import-mcp-app APP_ID=<access application id>" && exit 1)
+	@$(CF_AUTH) import module.zero_trust.cloudflare_zero_trust_access_application.mcp_server 'accounts/$(CF_ACCOUNT)/$(APP_ID)'
+
 # --- Stacks ---
 .PHONY: sync
 sync: ## Sync stacks to Dockge LXC (usage: make sync or make sync STACK=proxy)
@@ -219,6 +264,7 @@ runner-remove: ## Stop, uninstall and deregister the Actions runner
 .PHONY: lint
 lint: ## Validate YAML and Terraform files
 	@cd terraform && terraform validate
+	@cd terraform/cloudflare && terraform validate
 	@find . -name '*.yaml' -o -name '*.yml' | grep -v '.sops.yaml' | \
 		xargs -I{} sh -c 'python3 -c "import yaml; yaml.safe_load(open(\"{}\"))" 2>&1 && echo "✓ {}" || echo "✗ {}"'
 

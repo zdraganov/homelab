@@ -118,3 +118,69 @@ A hostname change touches three places and needs two applies:
 make deploy STACK=proxy
 make router-apply          # only if port forwards changed
 ```
+
+## Zero Trust: /admin and the MCP portal
+
+Cloudflare Access sits in front of `/admin` and `/api/admin` (Google login, an email allow-list), and
+an **MCP server portal** at `mcp.mdraganova.work` lets AI assistants (Claude.ai, ChatGPT, Claude Code)
+use the salon's admin panel through the same login. The portal is Cloudflare's OAuth server: the
+assistant is sent through Google and the allow-list, and the portal then calls the app's `/api/mcp`
+with the app's `MCP_SECRET` as a bearer token. The app never implements OAuth.
+
+All of it is Terraform in `terraform/cloudflare/` (module `terraform/modules/zero-trust/`), a second
+root next to the Proxmox one with its own local state.
+
+### Inputs
+
+| Value | Where | Read by |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | `secrets/terraform-cloudflare.enc.yaml` | `make cf-*` → provider |
+| `MCP_SECRET` | `secrets/mariya-salon.enc.yaml` (the app's `.env`) | the app; `make cf-*` → `TF_VAR_mcp_secret` |
+| `account_id`, `zone_id`, `admin_emails` | `terraform/cloudflare/terraform.tfvars`, committed | Terraform, and the import targets |
+
+The token is a new one, created at <https://dash.cloudflare.com/profile/api-tokens> with:
+
+- Account → Access: Apps and Policies → Edit
+- Account → Access: Organizations, Identity Providers, and Groups → Read
+- Account → MCP Portals → Write (covers both the portal and the upstream server registration)
+- Zone → DNS → Edit, scoped to `mdraganova.work`
+
+```bash
+make edit-secret FILE=secrets/terraform-cloudflare.enc.yaml   # CLOUDFLARE_API_TOKEN: "..."
+make edit-secret FILE=secrets/mariya-salon.enc.yaml           # add MCP_SECRET: "<openssl rand -hex 32>"
+cd stacks/mariya-salon && make deploy                         # the app needs the secret too
+```
+
+### First run
+
+1. Fill in `terraform/cloudflare/terraform.tfvars` (account id, zone id, emails).
+2. Adopt the existing `/admin` application so it is updated rather than duplicated. Its id is the
+   last segment of its URL in Zero Trust → Access controls → Applications:
+
+   ```bash
+   make cf-init
+   make cf-import-admin APP_ID=<id>
+   ```
+
+3. `make cf-plan`. Expect the imported application to show an in-place update: its dashboard policy
+   is replaced by the reusable `Salon admins` policy and `/api/admin` is added as a second
+   destination. Read the diff before applying — it is where a field the dashboard set and the
+   configuration does not would show up.
+4. `make cf-apply`.
+
+If the apply fails creating the portal's Access application because one already exists on
+`mcp.mdraganova.work`, Cloudflare created it alongside the portal (the dashboard does; the API
+may). Adopt it and apply again:
+
+```bash
+make cf-import-portal-app APP_ID=<id of the auto-created application>
+make cf-apply
+```
+
+### Connecting an assistant
+
+`make cf-output` prints `mcp_portal_url`, `https://mcp.mdraganova.work/mcp`. Paste it into
+Claude.ai (Settings → Connectors → Add custom connector) or ChatGPT (Settings → Connectors), or run
+`claude mcp add --transport http salon https://mcp.mdraganova.work/mcp`. Each opens a Google login
+the first time; only `admin_emails` get in. Tools arrive prefixed with the server id, e.g.
+`salon_get_overview`.
