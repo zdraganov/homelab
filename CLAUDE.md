@@ -87,6 +87,17 @@ notably the `mp0` bind mount `/mnt/pve/MariaSalon/uploads → /mnt/mariya-salon/
 Adding a mount to `lxc.tf` for an existing container is a no-op; do it on the host and comment it in the map.
 New resources are adopted with `make tf-import RES=<addr> ID=pve/<vmid>` (see [docs/adopting-existing.md](docs/adopting-existing.md)).
 
+**Second root: Cloudflare Zero Trust** ([terraform/cloudflare/](terraform/cloudflare/), module in
+[terraform/modules/zero-trust/](terraform/modules/zero-trust/)). Separate state and a separate credential:
+`make cf-plan` / `cf-apply` decrypt `CLOUDFLARE_API_TOKEN` from `secrets/terraform-cloudflare.enc.yaml` (a
+token with Access and DNS edit rights — the proxy stack's DNS-only token must not be widened) and
+`MCP_SECRET` from `secrets/mariya-salon.enc.yaml`, so the salon app and the MCP portal can never disagree
+on it. It manages the Access application over `mdraganova.work/admin` + `/api/admin` (adopted with
+`make cf-import-admin APP_ID=…`, it predates Terraform), the reusable Google-email allow policy, and the
+MCP server portal at `mcp.mdraganova.work` that fronts the app's `/api/mcp` with OAuth for AI assistants.
+The Google identity provider is looked up, not managed — its client secret is write-only in the API.
+Details and the run order are in [docs/mariya-salon-deployment.md](docs/mariya-salon-deployment.md).
+
 ## Router
 
 [router/generate.py](router/generate.py) reads `dns-hosts.yaml`, `dns-aliases.yaml` and `port-forwards.yaml`
