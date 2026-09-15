@@ -81,18 +81,24 @@ MCP_SECRET  = $(shell SOPS_AGE_KEY_FILE=secrets/age.key sops --decrypt --extract
 # assignment applies to the cd only and terraform runs with nothing.
 CF_AUTH     = cd terraform/cloudflare && CLOUDFLARE_API_TOKEN="$(CF_TOKEN)" TF_VAR_mcp_secret="$(MCP_SECRET)" terraform
 CF_ACCOUNT  = $(shell sed -n 's/^account_id *= *"\(.*\)"/\1/p' terraform/cloudflare/terraform.tfvars)
+# Optional: limit plan/apply to specific resource addresses. Needed while
+# provider issue cloudflare/terraform-provider-cloudflare#7294 makes every plan
+# want to flip the MCP portal's `on_behalf` — applying that would break the
+# salon's MCP connection. Space-separated, e.g.
+#   make cf-apply TARGETS="module.zero_trust.cloudflare_zero_trust_access_application.trypost"
+CF_TARGET_ARGS = $(foreach t,$(TARGETS),-target='$(t)')
 
 .PHONY: cf-init
 cf-init: ## Initialize the Cloudflare Terraform root
 	@$(CF) init
 
 .PHONY: cf-plan
-cf-plan: ## Plan Cloudflare Zero Trust changes
-	@$(CF_AUTH) plan
+cf-plan: ## Plan Cloudflare Zero Trust changes (optional TARGETS="addr addr")
+	@$(CF_AUTH) plan $(CF_TARGET_ARGS)
 
 .PHONY: cf-apply
-cf-apply: ## Apply Cloudflare Zero Trust changes
-	@$(CF_AUTH) apply
+cf-apply: ## Apply Cloudflare Zero Trust changes (optional TARGETS="addr addr")
+	@$(CF_AUTH) apply $(CF_TARGET_ARGS)
 
 .PHONY: cf-output
 cf-output: ## Show Cloudflare outputs (the MCP portal URL among them)

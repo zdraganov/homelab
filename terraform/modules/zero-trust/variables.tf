@@ -18,6 +18,17 @@ variable "portal_hostname" {
   type        = string
 }
 
+variable "trypost_hostname" {
+  description = "Where TryPost is served, without scheme (e.g. post.mdraganova.work). The whole host goes behind the admin allow-list except /storage, which the social platforms fetch media from."
+  type        = string
+}
+
+variable "tiktok_verifications" {
+  description = "TikTok for Developers domain-verification tokens: hostname => { label => the value after `tiktok-developers-site-verification=` }. One TXT record per token; a hostname can carry several (the production app and its sandbox verify separately)."
+  type        = map(map(string))
+  default     = {}
+}
+
 variable "admin_emails" {
   description = "Google accounts allowed into /admin and the MCP portal"
   type        = list(string)

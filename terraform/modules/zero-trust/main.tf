@@ -15,6 +15,11 @@
 #      the same allow-list as /admin, and then calls the app's `/api/mcp` with the
 #      static bearer secret the app already checks. Nothing about the app changes.
 #
+#   3. TryPost — the social media scheduler on its own hostname. The whole host
+#      sits behind the same login and allow-list, except `/storage`: Instagram,
+#      Threads, TikTok and Pinterest never receive the media file, they receive a
+#      URL and fetch it themselves, so that path is bypassed (docs/trypost.md).
+#
 # The Google identity provider itself stays managed in the dashboard: its OAuth
 # client secret is write-only in the API, so importing it would leave Terraform
 # unable to tell whether it drifted. It is looked up by type instead.
@@ -135,6 +140,99 @@ resource "cloudflare_zero_trust_access_application" "mcp_server" {
   session_duration = var.session_duration
 
   policies = [{ id = cloudflare_zero_trust_access_policy.admins.id }]
+}
+
+# ---------------------------------------------------------------------------
+# TryPost — the scheduler, and the media path the platforms pull from
+# ---------------------------------------------------------------------------
+
+# The mirror image of /admin: here the whole hostname is protected and one
+# path is opened. OAuth callbacks from Meta and TikTok land on
+# /accounts/<platform>/callback as browser redirects, so they carry the Access
+# cookie and need no exception. Only API/MCP bearer-token clients would be
+# stopped by this, and none exist yet.
+resource "cloudflare_zero_trust_access_application" "trypost" {
+  account_id = var.account_id
+  name       = "TryPost"
+  type       = "self_hosted"
+  domain     = var.trypost_hostname
+
+  allowed_idps              = [local.google_idp]
+  auto_redirect_to_identity = true
+  session_duration          = var.session_duration
+  app_launcher_visible      = false
+
+  policies = [{ id = cloudflare_zero_trust_access_policy.admins.id }]
+}
+
+# Bypass is a decision, so it still needs a policy; "everyone" is the only
+# sensible include for paths that machines, not people, must reach.
+resource "cloudflare_zero_trust_access_policy" "trypost_media" {
+  account_id = var.account_id
+  name       = "TryPost machine paths — public"
+  decision   = "bypass"
+
+  include = [{ everyone = {} }]
+}
+
+# Access applies the application with the most specific path, so these win over
+# the host-wide one above. Two kinds of path are opened:
+#
+#   /storage — media. Files have Laravel's hashed names and are the images
+#     about to be posted publicly; Meta's and TikTok's fetchers pull them.
+#
+#   The MCP OAuth machinery — TryPost is its own OAuth 2.1 server (dynamic
+#     client registration + PKCE, via Passport) and Claude.ai / Claude Code talk
+#     to it server-to-server: discovery under /.well-known, /oauth/register,
+#     /oauth/token, and the tool endpoint /mcp/trypost, which only accepts the
+#     tokens that flow issues. The consent page /oauth/authorize is deliberately
+#     NOT here: that is the browser step, and Access plus TryPost's own login
+#     gate every new authorization there.
+resource "cloudflare_zero_trust_access_application" "trypost_media" {
+  account_id = var.account_id
+  name       = "TryPost — machine paths (bypass)"
+  type       = "self_hosted"
+  domain     = "${var.trypost_hostname}/storage"
+
+  destinations = [
+    { type = "public", uri = "${var.trypost_hostname}/storage" },
+    { type = "public", uri = "${var.trypost_hostname}/.well-known/oauth-protected-resource" },
+    { type = "public", uri = "${var.trypost_hostname}/.well-known/oauth-authorization-server" },
+    { type = "public", uri = "${var.trypost_hostname}/oauth/register" },
+    { type = "public", uri = "${var.trypost_hostname}/oauth/token" },
+    { type = "public", uri = "${var.trypost_hostname}/mcp/trypost" },
+  ]
+
+  app_launcher_visible = false
+
+  policies = [{ id = cloudflare_zero_trust_access_policy.trypost_media.id }]
+}
+
+# TikTok for Developers asks for domain ownership twice: the apex, where the
+# terms and privacy pages the app review points at live, and the TryPost host,
+# because TikTok only pulls videos from a verified domain and TryPost hands it
+# URLs under https://<trypost_hostname>/storage/. Each is a TXT record next to
+# an A record managed elsewhere (the apex and post host by the DDNS sidecar in
+# the proxy stack); TXT and A coexist, only CNAME would not. The production app
+# and its sandbox each issue their own token, so a hostname carries one record
+# per token.
+locals {
+  tiktok_verification_records = merge([
+    for host, tokens in var.tiktok_verifications : {
+      for label, token in tokens : "${host}/${label}" => { name = host, label = label, token = token }
+    }
+  ]...)
+}
+
+resource "cloudflare_dns_record" "tiktok_verification" {
+  for_each = local.tiktok_verification_records
+
+  zone_id = var.zone_id
+  name    = each.value.name
+  type    = "TXT"
+  content = "tiktok-developers-site-verification=${each.value.token}"
+  ttl     = 1
+  comment = "TikTok for Developers domain verification, ${each.value.label} app (TryPost) — managed by Terraform"
 }
 
 # The dashboard creates this record for you; the API and Terraform do not.

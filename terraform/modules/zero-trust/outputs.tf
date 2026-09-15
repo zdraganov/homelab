@@ -26,6 +26,16 @@ output "mcp_portal_application_id" {
   value = cloudflare_zero_trust_access_application.portal.id
 }
 
+output "trypost_application_id" {
+  description = "Access application in front of the whole TryPost hostname"
+  value       = cloudflare_zero_trust_access_application.trypost.id
+}
+
+output "trypost_media_application_id" {
+  description = "The bypass application for /storage (media the platforms fetch) and the MCP OAuth machine paths"
+  value       = cloudflare_zero_trust_access_application.trypost_media.id
+}
+
 output "mcp_server_application_id" {
   description = "Access application admitting users to the salon server through the portal"
   value       = cloudflare_zero_trust_access_application.mcp_server.id

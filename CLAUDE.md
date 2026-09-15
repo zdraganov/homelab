@@ -94,7 +94,9 @@ token with Access and DNS edit rights — the proxy stack's DNS-only token must 
 `MCP_SECRET` from `secrets/mariya-salon.enc.yaml`, so the salon app and the MCP portal can never disagree
 on it. It manages the Access application over `mdraganova.work/admin` + `/api/admin` (adopted with
 `make cf-import-admin APP_ID=…`, it predates Terraform), the reusable Google-email allow policy, and the
-MCP server portal at `mcp.mdraganova.work` that fronts the app's `/api/mcp` with OAuth for AI assistants.
+MCP server portal at `mcp.mdraganova.work` that fronts the app's `/api/mcp` with OAuth for AI assistants,
+and the TryPost hostname `post.mdraganova.work` (whole host behind the same allow-list, `/storage` bypassed
+because the social platforms fetch media from it — see [docs/trypost.md](docs/trypost.md)).
 The Google identity provider is looked up, not managed — its client secret is write-only in the API.
 Details and the run order are in [docs/mariya-salon-deployment.md](docs/mariya-salon-deployment.md).
 

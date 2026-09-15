@@ -18,6 +18,12 @@ www.mdraganova.work {
 	redir https://mdraganova.work{uri} permanent
 }
 
+# TryPost (social media scheduler) — see docs/trypost.md.
+# reverse_proxy passes the Reverb WebSocket upgrade on /app/ through as-is.
+post.mdraganova.work {
+	reverse_proxy dockge.lan:8010
+}
+
 # Plex
 plex.zdraganov.work {
 	reverse_proxy plex.lan:32400

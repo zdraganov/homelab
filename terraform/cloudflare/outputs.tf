@@ -15,6 +15,10 @@ output "mcp_portal_application_id" {
   value = module.zero_trust.mcp_portal_application_id
 }
 
+output "trypost_application_id" {
+  value = module.zero_trust.trypost_application_id
+}
+
 output "admins_policy_id" {
   value = module.zero_trust.admins_policy_id
 }

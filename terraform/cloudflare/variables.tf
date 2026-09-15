@@ -20,6 +20,29 @@ variable "portal_hostname" {
   default     = "mcp.mdraganova.work"
 }
 
+variable "trypost_hostname" {
+  description = "Hostname of TryPost (stacks/trypost), on the same zone"
+  type        = string
+  default     = "post.mdraganova.work"
+}
+
+variable "tiktok_verifications" {
+  description = "TikTok domain-verification tokens per hostname and app (public by nature, they end up in DNS)"
+  type        = map(map(string))
+  default = {
+    # terms + privacy pages
+    "mdraganova.work" = {
+      production = "tCntljB7kxAA2uc79ySpWHdffxNyNE81"
+      sandbox    = "H0EqM4T57oIzE79SKgVGhcp2HvcBkaJT"
+    }
+    # media URL prefix /storage/
+    "post.mdraganova.work" = {
+      production = "Tk6vXdh7Lg336iLz9tDaZ5MWquWZ0lKG"
+      sandbox    = "t7y1VdztIa8tYprjywr8nhDAhqJs8yKT"
+    }
+  }
+}
+
 variable "admin_emails" {
   description = "Google accounts allowed into /admin and the MCP portal"
   type        = list(string)

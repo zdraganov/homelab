@@ -1,5 +1,6 @@
-# Cloudflare side of mdraganova.work: Zero Trust in front of /admin and the MCP
-# server portal that lets AI assistants use the salon's admin panel.
+# Cloudflare side of mdraganova.work: Zero Trust in front of /admin, the MCP
+# server portal that lets AI assistants use the salon's admin panel, and the
+# TryPost hostname (all of it except the media path the platforms fetch from).
 #
 # A separate root from ../ (Proxmox) because it needs a different credential and
 # its own state; the resources themselves live in ../modules/zero-trust.
@@ -27,10 +28,13 @@ provider "cloudflare" {}
 module "zero_trust" {
   source = "../modules/zero-trust"
 
-  account_id      = var.account_id
-  zone_id         = var.zone_id
-  hostname        = var.hostname
-  portal_hostname = var.portal_hostname
-  admin_emails    = var.admin_emails
-  mcp_secret      = var.mcp_secret
+  account_id       = var.account_id
+  zone_id          = var.zone_id
+  hostname         = var.hostname
+  portal_hostname  = var.portal_hostname
+  trypost_hostname = var.trypost_hostname
+  admin_emails     = var.admin_emails
+  mcp_secret       = var.mcp_secret
+
+  tiktok_verifications = var.tiktok_verifications
 }
