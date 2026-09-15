@@ -1,0 +1,119 @@
+# TryPost — self-hosted social media scheduler (https://github.com/trypostit/trypost).
+# Published image, pinned to a release: bump the tag here, then `make redeploy`
+# from this directory. Non-secret settings live below; credentials come from
+# secrets/trypost.enc.yaml, which `make deploy` writes to .env. See docs/trypost.md.
+services:
+  app:
+    image: ghcr.io/trypostit/trypost:1.0.9
+    container_name: trypost
+    restart: unless-stopped
+    ports:
+      # nginx inside the container also proxies Reverb (/app/, /apps/), so the
+      # WebSocket port 8080 is never published — Caddy only needs this one.
+      - "8010:80"
+    env_file:
+      - .env
+    environment:
+      APP_NAME: TryPost
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: https://post.mdraganova.work
+      SELF_HOSTED: "true"          # no billing, /register closed
+      TRYPOST_TARGET: production
+
+      DB_CONNECTION: pgsql
+      DB_HOST: pgsql
+      DB_PORT: "5432"
+      DB_DATABASE: trypost
+      DB_USERNAME: trypost
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      QUEUE_CONNECTION: redis      # Horizon needs redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: database
+      BROADCAST_CONNECTION: reverb
+
+      # Reverb runs inside the app container; the server side talks to it on
+      # localhost. REVERB_APP_KEY must stay this value — it is baked into the
+      # published image's JS bundle (see docs/trypost.md on the browser side).
+      REVERB_APP_ID: "1001"
+      REVERB_APP_KEY: trypost-reverb-key
+      REVERB_HOST: localhost
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: http
+
+      FILESYSTEM_DISK: public      # uploads in the `storage` volume
+
+      # Socialite needs the callback of every connected platform spelled out;
+      # upstream's .env.example derives these from APP_URL but a container
+      # environment cannot. Without it: "No redirect present in URI".
+      FACEBOOK_CLIENT_REDIRECT: https://post.mdraganova.work/accounts/facebook/callback
+      TIKTOK_CLIENT_REDIRECT: https://post.mdraganova.work/accounts/tiktok/callback
+
+      # Resend over SMTP; MAIL_PASSWORD (the API key) and MAIL_FROM_ADDRESS come from .env
+      MAIL_MAILER: smtp
+      MAIL_HOST: smtp.resend.com
+      MAIL_PORT: "465"
+      MAIL_SCHEME: smtps           # implicit TLS; Laravel accepts only smtp/smtps here, not "tls"
+      MAIL_USERNAME: resend
+      MAIL_FROM_NAME: TryPost
+    volumes:
+      - storage:/var/www/html/storage/app
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  pgsql:
+    image: postgres:16-alpine
+    container_name: trypost-pgsql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trypost
+      POSTGRES_USER: trypost
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trypost -d trypost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: trypost-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backup:
+    image: postgres:16-alpine
+    container_name: trypost-backup
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - /mnt/trypost/backups:/backups
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "0 3 * * * pg_dump -h pgsql -U trypost trypost | gzip > /backups/trypost-\$$(date +\%Y\%m\%d).sql.gz && find /backups -name '*.sql.gz' -mtime +7 -delete" | crontab -
+        crond -f -l 2
+    depends_on:
+      - pgsql
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
