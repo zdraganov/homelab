@@ -12,9 +12,10 @@ provider "proxmox" {
   api_token = var.proxmox_api_token
   insecure  = true
 
+  # The Proxmox key's private half is in the Bitwarden SSH agent, not on disk, so there is
+  # no file for private_key to read — use the agent via SSH_AUTH_SOCK instead.
   ssh {
-    agent       = false
-    private_key = file(var.ssh_private_key)
-    username    = "root"
+    agent    = true
+    username = "root"
   }
 }

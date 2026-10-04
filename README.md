@@ -23,11 +23,13 @@ GitOps repository for managing a Proxmox-based homelab environment.
 ## Quick Start
 
 ```bash
-# 1. Generate SSH key for Proxmox access
-ssh-keygen -t rsa -f ~/.ssh/homelab_rsa -C "homelab"
+# 1. Create an ed25519 SSH key in the Bitwarden desktop app (New item -> SSH key).
+#    The private half stays in Bitwarden's agent and never lands on disk; save the
+#    public half so ssh -i can name it to select that agent key.
+pbpaste > ~/.ssh/homelab.pub   # paste the public key from Bitwarden first
 
 # 2. Copy public key to Proxmox host (will prompt for password once)
-ssh-copy-id -i ~/.ssh/homelab_rsa.pub root@pve.lan
+ssh-copy-id -i ~/.ssh/homelab.pub root@pve.lan
 
 # 3. Initialize secret encryption
 make secrets-init

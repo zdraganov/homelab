@@ -8,7 +8,9 @@ variable "proxmox_api_token" {
   sensitive = true
 }
 
+# Unused: provider.tf authenticates through the SSH agent. Kept declared only because
+# terraform.tfvars still sets it — delete that line and this block together.
 variable "ssh_private_key" {
   type    = string
-  default = "~/.ssh/homelab_rsa"
+  default = ""
 }
