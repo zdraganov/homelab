@@ -62,7 +62,11 @@ services:
     command:
       - -c
       - |
-        echo "*/5 * * * * wget -qO- --header='x-sync-secret: $${CALENDAR_SYNC_SECRET}' --post-data='' http://app:3010/api/admin/sync-calendar > /proc/1/fd/1 2>&1" | crontab -
+        # Maintenance every 5 minutes; client emails (the journey) hourly, on their own tick.
+        {
+          echo "*/5 * * * * wget -qO- --header='x-sync-secret: $${CALENDAR_SYNC_SECRET}' --post-data='' http://app:3010/api/admin/sync-calendar > /proc/1/fd/1 2>&1"
+          echo "7 * * * * wget -qO- --header='x-sync-secret: $${CALENDAR_SYNC_SECRET}' --post-data='' http://app:3010/api/admin/scheduled-emails > /proc/1/fd/1 2>&1"
+        } | crontab -
         crond -f -l 2
     restart: unless-stopped
 
