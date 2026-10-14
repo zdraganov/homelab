@@ -143,12 +143,33 @@ sync-secrets: ## Decrypt and sync .env to Dockge LXC (usage: make sync-secrets S
 	@rm -f /tmp/.env.$(STACK)
 	@echo "✓ Secrets deployed for $(STACK)"
 
+.PHONY: caddy-reload
+caddy-reload: ## Validate the pushed Caddyfile and reload Caddy in place (no restart)
+	@if ! $(SSH) "pct exec $(DOCKGE_LXC) -- docker inspect -f '{{.State.Running}}' $(CADDY_CONTAINER)" 2>/dev/null | grep -q true; then \
+		echo "• $(CADDY_CONTAINER) not running — skipping reload"; \
+	else \
+		OUT=$$($(SSH) "pct exec $(DOCKGE_LXC) -- docker exec $(CADDY_CONTAINER) caddy validate --config $(CADDYFILE_PATH)" 2>&1); \
+		if [ $$? -ne 0 ]; then \
+			echo "$$OUT" | tail -5; \
+			echo "✗ Caddyfile is invalid — running config left untouched"; \
+			exit 1; \
+		fi; \
+		OUT=$$($(SSH) "pct exec $(DOCKGE_LXC) -- docker exec $(CADDY_CONTAINER) caddy reload --config $(CADDYFILE_PATH)" 2>&1); \
+		if [ $$? -ne 0 ]; then \
+			echo "$$OUT" | tail -5; \
+			echo "✗ Caddy reload failed — previous config still serving"; \
+			exit 1; \
+		fi; \
+		echo "✓ Caddy reloaded"; \
+	fi
+
 .PHONY: deploy
 deploy: ## Sync and restart a stack on the host (usage: make deploy STACK=proxy)
 	@test -n "$(STACK)" || (echo "Usage: make deploy STACK=name" && exit 1)
 	@$(MAKE) sync STACK=$(STACK)
 	@if [ -f secrets/$(STACK).enc.yaml ]; then $(MAKE) sync-secrets STACK=$(STACK); fi
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose up -d'"
+	@if [ -f stacks/$(STACK)/Caddyfile ]; then $(MAKE) --no-print-directory caddy-reload; fi
 	@echo "✓ $(STACK) deployed"
 
 .PHONY: redeploy
@@ -157,6 +178,7 @@ redeploy: ## Sync compose, pull latest images and restart a stack (usage: make r
 	@$(MAKE) sync STACK=$(STACK)
 	@if [ -f secrets/$(STACK).enc.yaml ]; then $(MAKE) sync-secrets STACK=$(STACK); fi
 	@$(SSH) "pct exec $(DOCKGE_LXC) -- bash -c 'cd /opt/stacks/$(STACK) && docker compose pull && docker compose up -d --remove-orphans'"
+	@if [ -f stacks/$(STACK)/Caddyfile ]; then $(MAKE) --no-print-directory caddy-reload; fi
 	@echo "✓ $(STACK) redeployed with latest images"
 
 .PHONY: setup-docker-auth
