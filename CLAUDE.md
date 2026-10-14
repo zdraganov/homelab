@@ -95,7 +95,11 @@ token with Access and DNS edit rights — the proxy stack's DNS-only token must 
 on it. It manages the Access application over `mdraganova.work/admin` + `/api/admin` (adopted with
 `make cf-import-admin APP_ID=…`, it predates Terraform), the reusable Google-email allow policy, and the
 MCP server portal at `mcp.mdraganova.work` that fronts the app's `/api/mcp` with OAuth for AI assistants.
-The Google identity provider is looked up, not managed — its client secret is write-only in the API.
+Neither identity provider is managed here, for different reasons: Google's OAuth client secret is
+write-only in the API, and one-time PIN has no configuration to own while Cloudflare allows exactly
+one `onetimepin` connection per account. Both are looked up by type. The admin application admits
+both, with `auto_redirect_to_identity = false` so the login screen still offers the choice — the
+emailed code is the way back in when Google holds a session for the wrong account.
 Details and the run order are in [docs/mariya-salon-deployment.md](docs/mariya-salon-deployment.md).
 
 ## Router
