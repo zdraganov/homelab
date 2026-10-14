@@ -140,5 +140,7 @@ make lint            # terraform validate + python3 yaml.safe_load over every ya
 make status          # qm list + pct list on the host
 ```
 
-There is no test suite. `make lint` does not catch compose-schema or Caddyfile errors; the proxy stack's
-healthcheck runs `caddy validate` only after deploy.
+There is no test suite. `make lint` does not catch compose-schema or Caddyfile errors. A Caddyfile is
+checked at deploy time instead: `deploy`/`redeploy` call `caddy-reload`, which runs `caddy validate`
+inside the container and only reloads if it passes — an invalid Caddyfile fails the target and leaves
+the running config serving. The proxy stack's healthcheck re-runs `caddy validate` every 30s.
