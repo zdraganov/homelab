@@ -17,6 +17,11 @@ output "google_identity_provider_id" {
   value = local.google_idp
 }
 
+output "onetimepin_identity_provider_id" {
+  description = "The emailed-code fallback admitted to /admin, so a wrong Google account is recoverable"
+  value       = local.onetimepin_idp
+}
+
 output "mcp_portal_url" {
   description = "What to paste into Claude.ai, ChatGPT or `claude mcp add --transport http`"
   value       = "https://${var.portal_hostname}/mcp"

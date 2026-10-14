@@ -15,9 +15,13 @@
 #      the same allow-list as /admin, and then calls the app's `/api/mcp` with the
 #      static bearer secret the app already checks. Nothing about the app changes.
 #
-# The Google identity provider itself stays managed in the dashboard: its OAuth
-# client secret is write-only in the API, so importing it would leave Terraform
-# unable to tell whether it drifted. It is looked up by type instead.
+# Neither identity provider is managed here, for two different reasons. Google's
+# OAuth client secret is write-only in the API, so importing it would leave
+# Terraform unable to tell whether it drifted. One-time PIN has no configuration
+# at all to own, and Cloudflare permits exactly one `onetimepin` connection per
+# account — creating it returns 409 `access.api.error.conflict` once the account
+# has one, which every account that has ever enabled it does. Both are therefore
+# looked up by type and referenced by id.
 
 terraform {
   required_providers {
@@ -32,9 +36,29 @@ data "cloudflare_zero_trust_access_identity_providers" "all" {
   account_id = var.account_id
 }
 
+# The one-time PIN connection is a second way in, so a wrong Google account is
+# never a locked door.
+#
+# Signing in to /admin as the wrong Google account used to be unrecoverable.
+# Access denies it, the block page offers only "Sign in with: Google", and
+# Google — holding a session for the wrong account and never asked to show a
+# chooser — hands the same one straight back. On a phone that is a closed loop:
+# the admin is installed as a home-screen web app, so there is no address bar to
+# reach a logout with and the app's cookie jar is its own, and the only fix left
+# was deleting and reinstalling it.
+#
+# A one-time PIN breaks the loop without touching Google: Access emails a code
+# to an address on the allow-list below, so the way back in needs nothing but
+# the mailbox. Cloudflare's docs are explicit that OTP and another provider can
+# be configured together "to allow users to select their own authentication
+# method" — which is also why `auto_redirect_to_identity` has to come off the
+# admin application, since it is what skips that choice.
 locals {
   google_idps = [for idp in data.cloudflare_zero_trust_access_identity_providers.all.result : idp.id if idp.type == "google"]
   google_idp  = one(local.google_idps)
+
+  onetimepin_idps = [for idp in data.cloudflare_zero_trust_access_identity_providers.all.result : idp.id if idp.type == "onetimepin"]
+  onetimepin_idp  = one(local.onetimepin_idps)
 
   admin_hostname = var.hostname
 }
@@ -73,8 +97,13 @@ resource "cloudflare_zero_trust_access_application" "admin" {
     { type = "public", uri = "${local.admin_hostname}/api/admin" },
   ]
 
-  allowed_idps              = [local.google_idp]
-  auto_redirect_to_identity = true
+  # Both methods, and no auto-redirect: together these are what put a second
+  # button on the login screen. `auto_redirect_to_identity` sends the visitor
+  # straight to the only provider and never shows the picker, so leaving it on
+  # would make the one-time PIN unreachable from the very screen that needs it.
+  # The cost is one extra tap for Mariya on a normal login.
+  allowed_idps              = [local.google_idp, local.onetimepin_idp]
+  auto_redirect_to_identity = false
   session_duration          = var.session_duration
   app_launcher_visible      = false
 
