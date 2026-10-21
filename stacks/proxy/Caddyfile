@@ -10,7 +10,81 @@ mdraganova.work {
 		root * /mnt/mariya-salon
 		file_server
 	}
-	reverse_proxy dockge.lan:3010
+
+	# A deploy recreates the app container, so for a few seconds nothing listens
+	# on :3010. Hold each request and keep retrying rather than failing at once:
+	# most visitors mid-deploy just see one slow page load, never an error.
+	reverse_proxy dockge.lan:3010 {
+		lb_try_duration 20s
+		lb_try_interval 500ms
+	}
+
+	# Still down after that (a migration, a slow start, a failed rollout): say so
+	# in the salon's voice instead of Caddy's blank 502. 503 + Retry-After tells
+	# crawlers it is temporary. The page polls /api/version and reloads itself
+	# once the app answers; API callers (the booking form, the admin, MCP) get JSON.
+	handle_errors {
+		@down expression `{err.status_code} in [502, 503, 504]`
+		handle @down {
+			header Retry-After 15
+			header Cache-Control no-store
+			@api path /api/*
+			handle @api {
+				header Content-Type application/json
+				respond `{"error":"maintenance","retryAfter":15}` 503
+			}
+			handle {
+				header Content-Type "text/html; charset=utf-8"
+				respond 503 {
+					body <<HTML
+					<!doctype html>
+					<html lang="bg">
+					<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1">
+					<meta name="robots" content="noindex">
+					<meta http-equiv="refresh" content="30">
+					<title>Обновяване · Lashes by Mariya Draganova</title>
+					<style>
+					:root { color-scheme: light; }
+					body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fff1f2; color: #1c1917; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 16px; box-sizing: border-box; }
+					main { max-width: 420px; width: 100%; background: #fff; border: 1px solid #fecdd3; border-radius: 20px; padding: 32px 28px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+					.brand { font-family: Georgia, "Times New Roman", serif; color: #9f1239; font-size: 18px; margin: 0 0 20px; }
+					h1 { font-family: Georgia, "Times New Roman", serif; font-size: 24px; margin: 0 0 8px; }
+					p { margin: 0 0 6px; line-height: 1.5; color: #57534e; font-size: 15px; }
+					.en { margin-top: 18px; padding-top: 16px; border-top: 1px solid #f5f5f4; }
+					.en h1 { font-size: 18px; }
+					.en p { font-size: 14px; }
+					.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9f1239; margin: 18px 3px 0; animation: pulse 1.2s infinite ease-in-out; }
+					.dot:nth-child(2) { animation-delay: .2s; } .dot:nth-child(3) { animation-delay: .4s; }
+					@keyframes pulse { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+					</style>
+					</head>
+					<body>
+					<main>
+					<p class="brand">Lashes by Mariya Draganova</p>
+					<h1>Обновяваме сайта</h1>
+					<p>Ще бъдем отново тук след минута. Страницата ще се зареди сама.</p>
+					<div class="en">
+					<h1>We're updating the site</h1>
+					<p>Back in a minute — this page will reload by itself.</p>
+					</div>
+					<div aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+					</main>
+					<script>
+					(function poll() {
+					  fetch("/api/version", { cache: "no-store" })
+					    .then(function (r) { if (r.ok) location.reload(); else setTimeout(poll, 3000); })
+					    .catch(function () { setTimeout(poll, 3000); });
+					})();
+					</script>
+					</body>
+					</html>
+					HTML
+				}
+			}
+		}
+	}
 }
 
 # Redirect www to apex
